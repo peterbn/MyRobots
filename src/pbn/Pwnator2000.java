@@ -51,8 +51,7 @@ public class Pwnator2000 extends AdvancedRobot
 
         //set up infinite radar turn
         addCustomEvent(new RadarTurnCompleteCondition(this));
-        setTurnRadarRight(RADAR_TURN_RATE);
-        addCustomEvent(new GunTurnCompleteCondition(this));
+        setTurnRadarRightRadians(RADAR_TURN_RATE);
         out.println("Initialization done");
 
         // Robot main loop
@@ -71,7 +70,7 @@ public class Pwnator2000 extends AdvancedRobot
         //switch on event
         Condition condition = event.getCondition();
         if (condition instanceof RadarTurnCompleteCondition) {
-            setTurnRadarRight(RADAR_TURN_RATE);
+            setTurnRadarRightRadians(RADAR_TURN_RATE);
         }
     }
 
@@ -85,7 +84,7 @@ public class Pwnator2000 extends AdvancedRobot
                 Recording target = currentTarget.top();
                 if (target != null) {
                     out.println("aiming for " + target);
-                    double gunHeading = getGunHeading();
+                    double gunHeading = getGunHeadingRadians();
                     double distance = target.distance(this);
                     if (getGunHeat() > 0) {
                         aiming = false;
@@ -99,20 +98,19 @@ public class Pwnator2000 extends AdvancedRobot
                     aiming = true;
                     hasLock = true;
                     long bulletTravelTime = (long)getBulletTravelTime(distance, BULLET_POWER);
-                    double currentBearing = target.currentBearingDeg(this, bulletTravelTime);
+                    double currentBearing = target.currentBearing(this, bulletTravelTime);
 
 
                     Point2D advance = target.advance(this.getTime() + bulletTravelTime);
                     drawCircle(advance.getX(), advance.getY(), Color.orange);
 
-                    double approxTurn = normalRelativeAngleDegrees(currentBearing - gunHeading);
+                    double approxTurn = normalRelativeAngle(currentBearing - gunHeading);
                     long gunTurnTime = (long) ceil(approxTurn / MAX_GUN_TURN_RATE);
-                    double turnBearing = target.currentBearingDeg(this, bulletTravelTime + gunTurnTime);
-                    double turn = normalRelativeAngleDegrees(turnBearing - gunHeading);
+                    double turnBearing = target.currentBearing(this, bulletTravelTime + gunTurnTime);
 
-//                    fireTime = getTime() + max(gunTurnTime, gunCoolingTime);
+                    double turn = normalRelativeAngle(turnBearing - gunHeading);
 
-                    setTurnGunRight(turn);
+                    setTurnGunRightRadians(turn);
                 }
             }
         }
@@ -143,8 +141,8 @@ public class Pwnator2000 extends AdvancedRobot
             Recording target = currentTarget.top();
             double distance = target.distance(this);
             long travelTime = (long) (distance / 8);
-            double targetHeading = target.currentBearingDeg(this, travelTime);
-            setTurnRight(normalRelativeAngleDegrees(targetHeading - getHeading()));
+            double targetHeading = target.currentBearing(this, travelTime);
+            setTurnRightRadians(normalRelativeAngle(targetHeading - getHeadingRadians()));
             setAhead(distance * 2 / 3);
 
         }
@@ -281,7 +279,7 @@ class Recording {
         return position.distance(me.getX(), me.getY());
     }
 
-    public double currentBearingDeg(Robot me, long dt) {
+    public double currentBearing(Robot me, long dt) {
         Point2D currentPosition = advance(me.getTime() + dt);
         double myX = me.getX();
         double myY = me.getY();
@@ -289,7 +287,7 @@ class Recording {
         double targetY = currentPosition.getY();
         double targetX = currentPosition.getX();
         if (targetX != myX) {
-            return normalAbsoluteAngleDegrees(90 - toDegrees(Math.atan2(targetY - myY, targetX - myX)));
+            return normalAbsoluteAngle(PI/2 - Math.atan2(targetY - myY, targetX - myX));
         } else {
             return targetX > myX ? 90 : 270;
         }
@@ -308,7 +306,7 @@ class Recording {
                 "time=" + time +
                 ", position=" + position +
                 ", velocity=" + velocity +
-                ", heading=" + toDegrees(headingRadians) +
+                ", headingDegrees=" + toDegrees(headingRadians) +
                 ", name='" + name + '\'' +
                 '}';
     }

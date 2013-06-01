@@ -16,12 +16,12 @@ import static robocode.util.Utils.*;
 public class Pwnator2000 extends AdvancedRobot
 {
 
-    private static final int MAX_RADAR_TURN_RATE = 45;
-    private static final int MAX_GUN_TURN_RATE = 20;
+    private static final double MAX_GUN_TURN_RATE_DEG = 20;
 
     private static final double BULLET_POWER = 2;
 
     private static final int RADAR_TURN_RATE = 1000;// MAX_RADAR_TURN_RATE;// - MAX_GUN_TURN_RATE; //max turn rate without interruption
+    private static final double GUN_AIM_TIME = ceil(180 / MAX_GUN_TURN_RATE_DEG);
 
     private Tracker tracker;
     private TargetingComputer targetingComputer;
@@ -39,6 +39,7 @@ public class Pwnator2000 extends AdvancedRobot
 	public void run() {
         // Initialization of the robot should be put here
         out.println("Started robot");
+        out.println("Estimated time to aim gun: " + GUN_AIM_TIME);
         this.tracker = new Tracker(this);
         out.println("Tracker online!");
         this.targetingComputer = new TargetingComputer(this);
@@ -72,6 +73,13 @@ public class Pwnator2000 extends AdvancedRobot
         if (condition instanceof RadarTurnCompleteCondition) {
             setTurnRadarRightRadians(RADAR_TURN_RATE);
         }
+        if (condition instanceof FireGunCondition) {
+            FireGunCondition fireCondition = (FireGunCondition) condition;
+            out.println("Firing gun at time " + getTime());
+            fire(fireCondition.getPower());
+            removeCustomEvent(condition);
+            aiming = false;
+        }
     }
 
     private void aim() {
@@ -79,29 +87,34 @@ public class Pwnator2000 extends AdvancedRobot
         out.println("setting target");
         Track currentTarget = tracker.getClosestRobotTrack();
 
-        if (currentTarget != null) {
+        if (currentTarget != null && !aiming) {
             Recording target = currentTarget.top();
             if (target != null) {
                 out.println("aiming for " + target);
                 double gunCoolingTime = getGunHeat() / gunCoolingRate;
-                int shotTime = (int) max(gunCoolingTime, PI / MAX_GUN_TURN_RATE);
-                double absoluteShotBearing = 0;
-                try {
-                    absoluteShotBearing = targetingComputer.getAbsoluteShotBearing(
-                            currentTarget,
-                            new Point2D.Double(getX(), getY()),
-                            getTime() + shotTime,
-                            BULLET_POWER);
-                    out.println("Absolute shot bearing is: " + toDegrees(absoluteShotBearing));
-                    out.println("Current gun heading is: " + getGunHeading());
-                    out.println("Current tank heading is: " + getHeading());
-                    double turn = normalRelativeAngle(absoluteShotBearing - getGunHeadingRadians());
-                    out.println("Turning gun: " + toDegrees(turn));
-                    setTurnGunRightRadians(turn);
-                    waitFor(new GunTurnCompleteCondition(this));
-                    setFire(BULLET_POWER);
-                } catch (NoSolutionException e) {
-                    out.println("Unable to compute solution");
+                long currentTime = getTime();
+                out.println("Gun cooled at " + (currentTime + gunCoolingTime));
+                if (gunCoolingTime < GUN_AIM_TIME) {
+                    out.print("Gun is cold before turret has turned - aiming for robot");
+                    long shotTime = (long) (GUN_AIM_TIME + currentTime);
+                    out.println("Aiming to shoot at time " + shotTime + ", current time is " + currentTime);
+                    try {
+                        double absoluteShotBearing = targetingComputer.getAbsoluteShotBearing(
+                                currentTarget,
+                                new Point2D.Double(getX(), getY()),
+                                shotTime,
+                                BULLET_POWER);
+                        out.println("Absolute shot bearing is: " + toDegrees(absoluteShotBearing));
+                        out.println("Current gun heading is: " + getGunHeading());
+                        out.println("Current tank heading is: " + getHeading());
+                        double turn = normalRelativeAngle(absoluteShotBearing - getGunHeadingRadians());
+                        out.println("Turning gun: " + toDegrees(turn));
+                        setTurnGunRightRadians(turn);
+                        addCustomEvent(new FireGunCondition(this, shotTime, BULLET_POWER));
+                        aiming = true;
+                    } catch (NoSolutionException e) {
+                        out.println("Unable to compute solution");
+                    }
                 }
             }
         }

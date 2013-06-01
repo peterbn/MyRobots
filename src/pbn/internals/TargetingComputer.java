@@ -67,12 +67,16 @@ public class TargetingComputer {
     }
 
     public static double getAbsoluteBearing(Point2D from, Point2D to) {
-        double dY = from.getY() - to.getY();
-        double dX = from.getX() - to.getX();
-        if (abs(dY) > 0) {
-            return signum(dY) * normalAbsoluteAngle(Math.atan(dX / dY));
+        double dY = to.getY() - from.getY();
+        double dX = to.getX() - from.getX();
+        double angle;
+        if (dX > 0) {
+            angle = PI / 2 - Math.atan2(dY, dX);
+        } else if (dX < 0) {
+            angle = PI / 2 - Math.atan2(dY, dX);
         } else {
-            return dX > 0 ? PI / 2 : 3 * PI / 2;
+            angle = dY > 0 ? 0 : PI;
         }
+        return normalAbsoluteAngle(angle);
     }
 }

@@ -27,13 +27,8 @@ public class FireGunCondition extends Condition {
 
     @Override
     public boolean test() {
-        robot.out.println("Testing for fire gun condition (" + triggerTime + ") at time: " + robot.getTime());
-        return triggerTime <= robot.getTime()
-                && Utils.isNear(robot.getGunHeadingRadians(), shootingSolution.getAbsoluteShotHeading());
-    }
-
-    public double getPower() {
-        return shootingSolution.getBulletPower();
+        return triggerTime + 10 <= robot.getTime()  || (triggerTime <= robot.getTime()
+                && Utils.isNear(robot.getGunHeadingRadians(), shootingSolution.getAbsoluteShotHeading()));
     }
 
     public ShootingSolution getShootingSolution() {

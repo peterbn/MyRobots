@@ -1,6 +1,7 @@
 package pbn;
 import pbn.internals.*;
 import robocode.*;
+import robocode.util.Utils;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
@@ -66,8 +67,7 @@ public class Pwnator2000 extends AdvancedRobot
         // Robot main loop
         //noinspection InfiniteLoopStatement
         while (true) {
-            setTurnRightRadians(PI / 16);
-            waitFor(new TurnCompleteCondition(this));
+            drivingComputer.iterate();
         }
     }
 
@@ -98,10 +98,14 @@ public class Pwnator2000 extends AdvancedRobot
 
     private void onFireGunEvent(FireGunCondition fireCondition) {
         out.println("Firing gun at time " + getTime());
-        Bullet bullet = setFireBullet(fireCondition.getPower());
         ShootingSolution solution = fireCondition.getShootingSolution();
+        Bullet bullet = null;
+        if (solution.getShootingPosition().distance(getX(), getY()) <= 5
+                && solution.getFiringTime() >= getTime() - 1) {
+            bullet = setFireBullet(solution.getBulletPower());
+            trackedBullets.put(bullet, solution);
+        }
         pendingSolutions.remove(solution);
-        trackedBullets.put(bullet, solution);
         aiming = false;
     }
 
@@ -115,17 +119,18 @@ public class Pwnator2000 extends AdvancedRobot
             double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
             long shotTime = (long) (GUN_AIM_TIME + currentTime);
             try {
-                Point2D.Double firingPoint = new Point2D.Double(getX(), getY());
+                Point2D firingPoint = drivingComputer.getFiringPosition((long) GUN_AIM_TIME);
                 ShootingSolution solution = targetingComputer.getShootingSolution(
                         currentTarget,
                         firingPoint,
                         shotTime);
                 double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
+                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 2;
                 if (readyTime < GUN_AIM_TIME) {
                     out.println("Turn will only take " + readyTime + ", recomputing shot");
                     //aim a little closer to the mark
                     shotTime = currentTime + readyTime;
+                    firingPoint = drivingComputer.getFiringPosition(readyTime);
                     solution = targetingComputer.getShootingSolution(
                             currentTarget,
                             firingPoint,
@@ -188,14 +193,13 @@ public class Pwnator2000 extends AdvancedRobot
 	 */
     @Override
 	public void onHitWall(HitWallEvent e) {
-        double hitLocation = e.getBearing();
-        if (hitLocation > 0) {
-            turnLeft(180 - hitLocation);
-        } else {
-            turnRight(180 + hitLocation);
-        }
-		ahead(120);
+        drivingComputer.onHitWall(e);
 	}
+
+    @Override
+    public void onHitRobot(HitRobotEvent event) {
+        drivingComputer.onHitRobot(event);
+    }
 
     @Override
     public void onRobotDeath(RobotDeathEvent event) {
@@ -203,6 +207,7 @@ public class Pwnator2000 extends AdvancedRobot
     }
 
     public void onPaint(Graphics2D g) {
+        drivingComputer.paint(g);
         tracker.paint(g);
         for (ShootingSolution solution : pendingSolutions) {
             DebugGraphics.drawAimLine(g, solution.getShootingPosition(), solution.getTargetPosition());
@@ -226,8 +231,9 @@ public class Pwnator2000 extends AdvancedRobot
             boolean hasEnemies = tracker.hasEnemies();
             double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
             boolean gunIsCoolEnough = gunCoolingTime < GUN_AIM_TIME / 2;
+            boolean hasNavData = drivingComputer.hasNavData();
 
-            boolean b = hasEnemies && !aiming && gunIsCoolEnough && pendingSolutions.isEmpty();
+            boolean b = hasEnemies && !aiming && gunIsCoolEnough &&  hasNavData;
             if (b) {
                 Recording top = tracker.getClosestRobotTrack().top();
                 return top.time > getTime() - 2 && top.distance(Pwnator2000.this) < 600;

@@ -65,7 +65,7 @@ public abstract class DebugGraphics {
         drawPointerLine(g, firingPoint, targetPoint, Color.RED);
     }
 
-    private static void drawPointerLine(Graphics2D g, Point2D firingPoint, Point2D targetPos, Color color) {
+    public static void drawPointerLine(Graphics2D g, Point2D firingPoint, Point2D targetPos, Color color) {
         g.setColor(color);
         int fromX = (int) firingPoint.getX();
         int fromY = (int) firingPoint.getY();

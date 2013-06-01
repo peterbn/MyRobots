@@ -10,6 +10,7 @@ import java.awt.geom.Point2D;
 public class ShootingSolution {
 
     private final Point2D shootingPosition;
+    private final long firingTime;
     private final Point2D targetPosition;
     private final double distance;
     private final double absoluteShotHeading;
@@ -17,12 +18,14 @@ public class ShootingSolution {
     private final String robotName;
 
     public ShootingSolution(Point2D shootingPosition,
+                            long firingTime,
                             Point2D targetPosition,
                             double distance,
                             double absoluteShotHeading,
                             double bulletPower,
                             String robotName) {
         this.shootingPosition = shootingPosition;
+        this.firingTime = firingTime;
         this.targetPosition = targetPosition;
         this.distance = distance;
         this.absoluteShotHeading = absoluteShotHeading;
@@ -52,6 +55,10 @@ public class ShootingSolution {
 
     public String getRobotName() {
         return robotName;
+    }
+
+    public long getFiringTime() {
+        return firingTime;
     }
 
     @Override

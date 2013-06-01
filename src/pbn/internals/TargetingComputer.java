@@ -1,6 +1,7 @@
 package pbn.internals;
 
 import robocode.AdvancedRobot;
+import robocode.Rules;
 
 import java.awt.geom.Point2D;
 
@@ -50,7 +51,7 @@ public class TargetingComputer {
         }
         DebugGraphics.drawAimLine(robot.getGraphics(), firingPoint, targetPos);
         double absoluteBearing = getAbsoluteBearing(firingPoint, targetPos);
-        return new ShootingSolution(firingPoint, targetPos, distance, absoluteBearing, power, target.name);
+        return new ShootingSolution(firingPoint, firingTime, targetPos, distance, absoluteBearing, power, target.name);
     }
 
     private Point2D getTargetPos(Point2D firingPoint, long firingTime, double power, Recording top) throws NoSolutionException {
@@ -84,12 +85,8 @@ public class TargetingComputer {
     }
 
 
-    public static double getBulletTravelTime(double distanceToEnemy, double bulletPower) {
-        return Math.ceil(distanceToEnemy / getBulletDistance(1, bulletPower));
-    }
-
     public static double getBulletDistance(long ticks, double bulletPower) {
-        return (20 - (3 * bulletPower)) * ticks;
+        return Rules.getBulletSpeed(bulletPower) * ticks;
     }
 
     public static double getAbsoluteBearing(Point2D from, Point2D to) {
@@ -105,4 +102,6 @@ public class TargetingComputer {
         }
         return normalAbsoluteAngle(angle);
     }
+
+
 }

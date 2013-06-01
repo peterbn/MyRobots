@@ -1,5 +1,6 @@
 package pbn.internals;
 
+import robocode.AdvancedRobot;
 import robocode.Condition;
 import robocode.Robot;
 
@@ -12,11 +13,11 @@ import robocode.Robot;
  */
 public class FireGunCondition extends Condition {
 
-    private final Robot robot;
+    private final AdvancedRobot robot;
     private final long triggerTime;
     private final double power;
 
-    public FireGunCondition(Robot robot, long triggerTime, double power) {
+    public FireGunCondition(AdvancedRobot robot, long triggerTime, double power) {
         super("FireGun", 99);
         this.robot = robot;
         this.triggerTime = triggerTime;
@@ -26,7 +27,7 @@ public class FireGunCondition extends Condition {
     @Override
     public boolean test() {
         robot.out.println("Testing for fire gun condition (" + triggerTime + ") at time: " + robot.getTime());
-        return triggerTime <= robot.getTime();
+        return triggerTime <= robot.getTime() && robot.getGunTurnRemaining() <= 0;
     }
 
     public double getPower() {

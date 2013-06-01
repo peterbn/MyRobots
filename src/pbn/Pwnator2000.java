@@ -16,12 +16,12 @@ import static robocode.util.Utils.*;
 public class Pwnator2000 extends AdvancedRobot
 {
 
-    private static final double MAX_GUN_TURN_RATE_DEG = 20;
+    private static final double MAX_GUN_TURN_RATE_RAD = (PI * 20) / 180;
 
     private static final double BULLET_POWER = 2;
 
     private static final int RADAR_TURN_RATE = 1000;// MAX_RADAR_TURN_RATE;// - MAX_GUN_TURN_RATE; //max turn rate without interruption
-    private static final double GUN_AIM_TIME = ceil(180 / MAX_GUN_TURN_RATE_DEG);
+    private static final double GUN_AIM_TIME = ceil(PI / MAX_GUN_TURN_RATE_RAD);
 
     private Tracker tracker;
     private TargetingComputer targetingComputer;
@@ -74,10 +74,10 @@ public class Pwnator2000 extends AdvancedRobot
             setTurnRadarRightRadians(RADAR_TURN_RATE);
         }
         if (condition instanceof FireGunCondition) {
+            removeCustomEvent(condition);
             FireGunCondition fireCondition = (FireGunCondition) condition;
             out.println("Firing gun at time " + getTime());
-            fire(fireCondition.getPower());
-            removeCustomEvent(condition);
+            setFire(fireCondition.getPower());
             aiming = false;
         }
     }
@@ -91,29 +91,41 @@ public class Pwnator2000 extends AdvancedRobot
             Recording target = currentTarget.top();
             if (target != null) {
                 out.println("aiming for " + target);
-                double gunCoolingTime = getGunHeat() / gunCoolingRate;
+                double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
                 long currentTime = getTime();
                 out.println("Gun cooled at " + (currentTime + gunCoolingTime));
-                if (gunCoolingTime < GUN_AIM_TIME) {
+                if (gunCoolingTime < GUN_AIM_TIME/2) {
                     out.print("Gun is cold before turret has turned - aiming for robot");
                     long shotTime = (long) (GUN_AIM_TIME + currentTime);
                     out.println("Aiming to shoot at time " + shotTime + ", current time is " + currentTime);
                     try {
-                        double absoluteShotBearing = targetingComputer.getAbsoluteShotBearing(
+                        Point2D.Double firingPoint = new Point2D.Double(getX(), getY());
+                        ShootingSolution solution = targetingComputer.getShootingSolution(
                                 currentTarget,
-                                new Point2D.Double(getX(), getY()),
-                                shotTime,
-                                BULLET_POWER);
-                        out.println("Absolute shot bearing is: " + toDegrees(absoluteShotBearing));
+                                firingPoint,
+                                shotTime);
+                        double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
+                        long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD), gunCoolingTime);
+                        if (readyTime < GUN_AIM_TIME) {
+                            out.println("Turn will only take " + readyTime + ", recomputing shot");
+                            //aim a little closer to the mark
+                            shotTime = currentTime + readyTime;
+                            solution = targetingComputer.getShootingSolution(
+                                    currentTarget,
+                                    firingPoint,
+                                    shotTime
+                            );
+                        }
+                        out.println("Shooting at: " + solution);
                         out.println("Current gun heading is: " + getGunHeading());
                         out.println("Current tank heading is: " + getHeading());
-                        double turn = normalRelativeAngle(absoluteShotBearing - getGunHeadingRadians());
+
                         out.println("Turning gun: " + toDegrees(turn));
                         setTurnGunRightRadians(turn);
                         addCustomEvent(new FireGunCondition(this, shotTime, BULLET_POWER));
                         aiming = true;
                     } catch (NoSolutionException e) {
-                        out.println("Unable to compute solution");
+                        out.println("Unable to compute solution: " + e.getMessage());
                     }
                 }
             }

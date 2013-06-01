@@ -4,10 +4,7 @@ import robocode.AdvancedRobot;
 
 import java.awt.geom.Point2D;
 
-import static java.lang.Math.PI;
-import static java.lang.Math.abs;
-import static java.lang.Math.signum;
-import static robocode.util.Utils.isNear;
+import static java.lang.Math.*;
 import static robocode.util.Utils.normalAbsoluteAngle;
 
 /**
@@ -31,30 +28,59 @@ public class TargetingComputer {
      * @param track       Track to aim at
      * @param firingPoint Point from where the shot will be fired
      * @param firingTime  Absolute time of shot
-     * @param power       Power of bullet
      * @return Absolute bearing of shot (radians)
      * @throws NoSolutionException if not solution was found
      */
-    public double getAbsoluteShotBearing(
+    public ShootingSolution getShootingSolution(
             Track track,
             final Point2D firingPoint,
-            final long firingTime,
-            final double power) throws NoSolutionException {
+            final long firingTime) throws NoSolutionException {
         final Recording top = track.top();
+        double power = min(1.5, robot.getEnergy() / 2);
+        Point2D targetPos = getTargetPos(firingPoint, firingTime, power, top);
+        double distance = firingPoint.distance(targetPos);
+        if (distance > 400 && power > 1) {
+            power = 1;
+            targetPos = getTargetPos(firingPoint, firingTime, power, top);
+            distance = firingPoint.distance(targetPos);
+        } else if (distance < 200 && robot.getEnergy() > 20) {
+            power = 3;
+            targetPos = getTargetPos(firingPoint, firingTime, power, top);
+            distance = firingPoint.distance(targetPos);
+        }
+        DebugGraphics.drawAimLine(robot.getGraphics(), firingPoint, targetPos);
+        double absoluteBearing = getAbsoluteBearing(firingPoint, targetPos);
+        return new ShootingSolution(firingPoint, targetPos, distance, absoluteBearing, power);
+    }
+
+    private Point2D getTargetPos(Point2D firingPoint, long firingTime, double power, Recording top) throws NoSolutionException {
         Point2D targetPos = top.advance(firingTime);
         double remainingDistance = targetPos.distance(firingPoint);
         long dt = 0;
-        while (remainingDistance > (robot.getWidth() / 2)) {
+        while (remainingDistance > (robot.getWidth() / 2) ) {
             dt++; //one step closer
-            targetPos = top.advance(firingTime + dt);
+            Point2D advance = top.advance(firingTime + dt);
+            if (outsideBattleField(advance)) {
+                robot.out.println("Lead is outside battlefield, aiming at wall location");
+                break;
+            }
+            targetPos = advance;
             double bulletDistance = getBulletDistance(dt, power);
             remainingDistance = targetPos.distance(firingPoint) - bulletDistance;
             if (bulletDistance > robot.getBattleFieldHeight() + robot.getBattleFieldWidth()) {
-                throw new NoSolutionException();
+                throw new NoSolutionException("Iteration exceeded limits");
             }
         }
-        DebugGraphics.drawAimLine(robot.getGraphics(), firingPoint, targetPos);
-        return getAbsoluteBearing(firingPoint, targetPos);
+        return targetPos;
+    }
+
+
+    private boolean outsideBattleField(Point2D targetPos) {
+        return targetPos.getX() < 0
+                || targetPos.getX() > robot.getBattleFieldWidth()
+                || targetPos.getY() < 0
+                || targetPos.getY() > robot.getBattleFieldHeight();
+
     }
 
 

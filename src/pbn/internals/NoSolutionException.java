@@ -8,4 +8,7 @@ package pbn.internals;
  * To change this template use File | Settings | File Templates.
  */
 public class NoSolutionException extends Exception{
+    public NoSolutionException(String message) {
+        super(message);
+    }
 }

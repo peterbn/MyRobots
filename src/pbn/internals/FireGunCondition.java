@@ -3,6 +3,7 @@ package pbn.internals;
 import robocode.AdvancedRobot;
 import robocode.Condition;
 import robocode.Robot;
+import robocode.util.Utils;
 
 /**
  * Created by IntelliJ IDEA.
@@ -27,7 +28,8 @@ public class FireGunCondition extends Condition {
     @Override
     public boolean test() {
         robot.out.println("Testing for fire gun condition (" + triggerTime + ") at time: " + robot.getTime());
-        return triggerTime <= robot.getTime() && robot.getGunTurnRemaining() <= 0;
+        return triggerTime <= robot.getTime()
+                && Utils.isNear(robot.getGunHeadingRadians(), shootingSolution.getAbsoluteShotHeading());
     }
 
     public double getPower() {

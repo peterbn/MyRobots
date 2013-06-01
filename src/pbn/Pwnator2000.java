@@ -32,6 +32,7 @@ public class Pwnator2000 extends AdvancedRobot
 
     private double gunCoolingRate;
     private Map<Bullet, ShootingSolution> trackedBullets = new HashMap<Bullet,ShootingSolution>();
+    private Set<ShootingSolution> pendingSolutions = new HashSet<ShootingSolution>();
 
 
 
@@ -49,6 +50,8 @@ public class Pwnator2000 extends AdvancedRobot
         out.println("Targeting computer online!");
 
         setAdjustRadarForGunTurn(true);
+        setAdjustGunForRobotTurn(true);
+        setAdjustRadarForRobotTurn(true);
         gunCoolingRate = getGunCoolingRate();
 
         //set up infinite radar turn
@@ -60,9 +63,8 @@ public class Pwnator2000 extends AdvancedRobot
         // Robot main loop
         //noinspection InfiniteLoopStatement
         while (true) {
-            ahead(10);
             aim();
-            back(10);
+            turnRightRadians(PI/8);
 
             //huntTank();
         }
@@ -80,8 +82,10 @@ public class Pwnator2000 extends AdvancedRobot
             removeCustomEvent(condition);
             FireGunCondition fireCondition = (FireGunCondition) condition;
             out.println("Firing gun at time " + getTime());
-            Bullet bullet = fireBullet(fireCondition.getPower());
-            trackedBullets.put(bullet, fireCondition.getShootingSolution());
+            Bullet bullet = setFireBullet(fireCondition.getPower());
+            ShootingSolution solution = fireCondition.getShootingSolution();
+            pendingSolutions.remove(solution);
+            trackedBullets.put(bullet, solution);
             aiming = false;
         }
     }
@@ -125,8 +129,11 @@ public class Pwnator2000 extends AdvancedRobot
 
                     out.println("Turning gun: " + toDegrees(turn));
                     aiming = true;
-                    setTurnGunRightRadians(turn);
-                    addCustomEvent(new FireGunCondition(this, shotTime, solution));
+                    pendingSolutions.add(solution);
+                    synchronized (this) {
+                        setTurnGunRightRadians(turn);
+                        addCustomEvent(new FireGunCondition(this, shotTime, solution));
+                    }
                 } catch (NoSolutionException e) {
                     out.println("Unable to compute solution: " + e.getMessage());
                 }
@@ -140,10 +147,7 @@ public class Pwnator2000 extends AdvancedRobot
 	 */
     @Override
 	public void onScannedRobot(ScannedRobotEvent e) {
-        setDebugProperty("lastScannedRobot", e.getName() + " at " + e.getBearing() + " degrees at time " + getTime());
         tracker.update(e);
-        setDebugProperty("Track", tracker.toString());
-
 	}
 
     /**
@@ -191,6 +195,9 @@ public class Pwnator2000 extends AdvancedRobot
 
     public void onPaint(Graphics2D g) {
         tracker.paint(g);
+        for (ShootingSolution solution : pendingSolutions) {
+            DebugGraphics.drawAimLine(g, solution.getShootingPosition(), solution.getTargetPosition());
+        }
         for (ShootingSolution solution : trackedBullets.values()) {
             DebugGraphics.drawBulletLine(g, solution.getShootingPosition(), solution.getTargetPosition());
         }

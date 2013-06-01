@@ -50,7 +50,7 @@ public class TargetingComputer {
         }
         DebugGraphics.drawAimLine(robot.getGraphics(), firingPoint, targetPos);
         double absoluteBearing = getAbsoluteBearing(firingPoint, targetPos);
-        return new ShootingSolution(firingPoint, targetPos, distance, absoluteBearing, power);
+        return new ShootingSolution(firingPoint, targetPos, distance, absoluteBearing, power, target.name);
     }
 
     private Point2D getTargetPos(Point2D firingPoint, long firingTime, double power, Recording top) throws NoSolutionException {

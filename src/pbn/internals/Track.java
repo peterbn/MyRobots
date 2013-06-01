@@ -1,7 +1,9 @@
 package pbn.internals;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * A track of a single robot
@@ -23,6 +25,10 @@ public class Track {
 
     public Recording top() {
         return elements.peekFirst();
+    }
+
+    public synchronized List<Recording> snapshot() {
+        return new ArrayList<Recording>(elements);
     }
 
     @Override

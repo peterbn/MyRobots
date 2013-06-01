@@ -2,6 +2,7 @@ package pbn.internals;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
+import java.util.*;
 
 /**
  * Static methods to draw debugging (and targeting) graphics
@@ -22,21 +23,32 @@ public abstract class DebugGraphics {
     }
 
     public static void drawTrackOverlay(Graphics2D g, Track track, long time) {
-        Recording top = track.top();
-        Point2D position = top.advance(time);
+        Iterator<Recording> recordings = track.snapshot().iterator();
+        Recording recording = recordings.next();
+        Point2D advance = recording.advance(time);
+        int x = (int) advance.getX();
+        int y = (int) advance.getY();
+        int xOrig = (int) recording.position.getX();
+        int yOrig = (int) recording.position.getY();
+        int step = 0;
+        while (recordings.hasNext()) {
+            recording = recordings.next();
+            int dx = (int) recording.getDX();
+            int dy = (int) recording.getDY();
+            x = (int) recording.position.getX();
+            y = (int) recording.position.getY();
+            drawRobotBox(g,xOrig, yOrig, new Color(0xFF, 0xff, 0x00, 128 - (step++)*10));
+            g.setColor(Color.yellow);
+            g.drawLine(xOrig, yOrig, x + dx, y + dy);
+            xOrig = (int) recording.position.getX();
+            yOrig = (int) recording.position.getY();
+        }
         g.setColor(RED_TRANSPARENT);
-        int xOrig = (int) top.position.getX();
-        int yOrig = (int) top.position.getY();
-        int x = (int) position.getX();
-        int y = (int) position.getY();
-        int dx = (int) top.getDX();
-        int dy = (int) top.getDY();
-        drawRobotBox(g,xOrig, yOrig, YELLOW_TRANSPARENT);
+        x = (int) advance.getX();
+        y = (int) advance.getY();
         drawRobotBox(g, x, y, RED_TRANSPARENT);
-        g.setColor(Color.yellow);
-        g.drawLine(xOrig, yOrig, x + dx*8, y + dy*8);
         g.setColor(WHITE_TRANSPARENT);
-        g.drawString(top.name, x - 20, y - 20);
+        g.drawString(recording.name, x - 20, y - 20);
 
     }
 

@@ -4,10 +4,7 @@ import robocode.*;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static java.lang.Math.*;
 import static robocode.util.Utils.*;
@@ -27,12 +24,13 @@ public class Pwnator2000 extends AdvancedRobot
 
     private Tracker tracker;
     private TargetingComputer targetingComputer;
+    private DrivingComputer drivingComputer;
 
     private volatile boolean aiming = false;
 
     private double gunCoolingRate;
-    private Map<Bullet, ShootingSolution> trackedBullets = new HashMap<Bullet,ShootingSolution>();
-    private Set<ShootingSolution> pendingSolutions = new HashSet<ShootingSolution>();
+    private Map<Bullet, ShootingSolution> trackedBullets = Collections.synchronizedMap(new HashMap<Bullet,ShootingSolution>());
+    private Set<ShootingSolution> pendingSolutions = Collections.synchronizedSet(new HashSet<ShootingSolution>());
 
 
 
@@ -43,11 +41,12 @@ public class Pwnator2000 extends AdvancedRobot
 	public void run() {
         // Initialization of the robot should be put here
         out.println("Started robot");
-        out.println("Estimated time to aim gun: " + GUN_AIM_TIME);
         this.tracker = new Tracker(this);
-        out.println("Tracker online!");
+        out.println("Tracking subsystem online!");
         this.targetingComputer = new TargetingComputer(this);
-        out.println("Targeting computer online!");
+        out.println("Targeting subsystem online!");
+        this.drivingComputer = new DrivingComputer(this);
+        out.println("Driving subsystem online!");
 
         setAdjustRadarForGunTurn(true);
         setAdjustGunForRobotTurn(true);
@@ -55,18 +54,20 @@ public class Pwnator2000 extends AdvancedRobot
         gunCoolingRate = getGunCoolingRate();
 
         //set up infinite radar turn
+        out.println("Bringing Radar online");
         addCustomEvent(new RadarTurnCompleteCondition(this));
         setTurnRadarRightRadians(RADAR_TURN_RATE);
         out.println("Rardar online");
+        addCustomEvent(new AimReadyCondition());
+        out.println("Aim subsystem started");
+
         out.println("Initialization done");
 
         // Robot main loop
         //noinspection InfiniteLoopStatement
         while (true) {
-            aim();
-            turnRightRadians(PI/8);
-
-            //huntTank();
+            setTurnRightRadians(PI / 16);
+            waitFor(new TurnCompleteCondition(this));
         }
     }
 
@@ -75,68 +76,76 @@ public class Pwnator2000 extends AdvancedRobot
         super.onCustomEvent(event);
         //switch on event
         Condition condition = event.getCondition();
+        //PERSISTENT EVENTS - remember to return after dispatch
         if (condition instanceof RadarTurnCompleteCondition) {
             setTurnRadarRightRadians(RADAR_TURN_RATE);
+            return;
         }
+        if (condition instanceof AimReadyCondition) {
+            aim();
+            return;
+        }
+
+        //TEMPORARY EVENTS
         if (condition instanceof FireGunCondition) {
-            removeCustomEvent(condition);
             FireGunCondition fireCondition = (FireGunCondition) condition;
-            out.println("Firing gun at time " + getTime());
-            Bullet bullet = setFireBullet(fireCondition.getPower());
-            ShootingSolution solution = fireCondition.getShootingSolution();
-            pendingSolutions.remove(solution);
-            trackedBullets.put(bullet, solution);
-            aiming = false;
+            onFireGunEvent(fireCondition);
         }
+
+        //remove temporary event
+        removeCustomEvent(condition);
+    }
+
+    private void onFireGunEvent(FireGunCondition fireCondition) {
+        out.println("Firing gun at time " + getTime());
+        Bullet bullet = setFireBullet(fireCondition.getPower());
+        ShootingSolution solution = fireCondition.getShootingSolution();
+        pendingSolutions.remove(solution);
+        trackedBullets.put(bullet, solution);
+        aiming = false;
     }
 
     private void aim() {
-        if (!tracker.hasEnemies()) return;
         out.println("setting target");
         Track currentTarget = tracker.getClosestRobotTrack();
-        if (currentTarget != null && !aiming) {
+        if (currentTarget != null ) {
             Recording target = currentTarget.top();
             out.println("aiming for " + target);
-            double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
             long currentTime = getTime();
-            out.println("Gun cooled at " + (currentTime + gunCoolingTime));
-            if (gunCoolingTime < GUN_AIM_TIME/2) {
-                out.print("Gun is cold before turret has turned - aiming for robot");
-                long shotTime = (long) (GUN_AIM_TIME + currentTime);
-                out.println("Aiming to shoot at time " + shotTime + ", current time is " + currentTime);
-                try {
-                    Point2D.Double firingPoint = new Point2D.Double(getX(), getY());
-                    ShootingSolution solution = targetingComputer.getShootingSolution(
+            double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
+            long shotTime = (long) (GUN_AIM_TIME + currentTime);
+            try {
+                Point2D.Double firingPoint = new Point2D.Double(getX(), getY());
+                ShootingSolution solution = targetingComputer.getShootingSolution(
+                        currentTarget,
+                        firingPoint,
+                        shotTime);
+                double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
+                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
+                if (readyTime < GUN_AIM_TIME) {
+                    out.println("Turn will only take " + readyTime + ", recomputing shot");
+                    //aim a little closer to the mark
+                    shotTime = currentTime + readyTime;
+                    solution = targetingComputer.getShootingSolution(
                             currentTarget,
                             firingPoint,
-                            shotTime);
-                    double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                    long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
-                    if (readyTime < GUN_AIM_TIME) {
-                        out.println("Turn will only take " + readyTime + ", recomputing shot");
-                        //aim a little closer to the mark
-                        shotTime = currentTime + readyTime;
-                        solution = targetingComputer.getShootingSolution(
-                                currentTarget,
-                                firingPoint,
-                                shotTime
-                        );
-                        turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                    }
-                    out.println("Shooting at: " + solution);
-                    out.println("Current gun heading is: " + getGunHeading());
-                    out.println("Current tank heading is: " + getHeading());
-
-                    out.println("Turning gun: " + toDegrees(turn));
-                    aiming = true;
-                    pendingSolutions.add(solution);
-                    synchronized (this) {
-                        setTurnGunRightRadians(turn);
-                        addCustomEvent(new FireGunCondition(this, shotTime, solution));
-                    }
-                } catch (NoSolutionException e) {
-                    out.println("Unable to compute solution: " + e.getMessage());
+                            shotTime
+                    );
+                    turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
                 }
+                out.println("Shooting at: " + solution);
+                out.println("Current gun heading is: " + getGunHeading());
+                out.println("Current tank heading is: " + getHeading());
+
+                out.println("Turning gun: " + toDegrees(turn));
+                aiming = true;
+                pendingSolutions.add(solution);
+                synchronized (this) {
+                    setTurnGunRightRadians(turn);
+                    addCustomEvent(new FireGunCondition(this, shotTime, solution));
+                }
+            } catch (NoSolutionException e) {
+                out.println("Unable to compute solution: " + e.getMessage());
             }
         }
     }
@@ -203,6 +212,29 @@ public class Pwnator2000 extends AdvancedRobot
         }
     }
 
+    /**
+     * Condition that checks if we're ready to aim for a new bot
+     */
+    public class AimReadyCondition extends Condition {
+
+        public AimReadyCondition() {
+            super("AimReady", 90);
+        }
+
+        @Override
+        public boolean test() {
+            boolean hasEnemies = tracker.hasEnemies();
+            double gunCoolingTime = ceil(getGunHeat() / gunCoolingRate);
+            boolean gunIsCoolEnough = gunCoolingTime < GUN_AIM_TIME / 2;
+
+            boolean b = hasEnemies && !aiming && gunIsCoolEnough && pendingSolutions.isEmpty();
+            if (b) {
+                Recording top = tracker.getClosestRobotTrack().top();
+                return top.time > getTime() - 2 && top.distance(Pwnator2000.this) < 600;
+            }
+            return false;
+        }
+    }
 }
 
 

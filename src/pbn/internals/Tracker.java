@@ -5,6 +5,7 @@ import robocode.RobotDeathEvent;
 import robocode.ScannedRobotEvent;
 
 import java.awt.*;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,7 +35,7 @@ public class Tracker {
         Recording target = Recording.record(robot, e);
         track.add(target);
 
-        DebugGraphics.drawBigCircle(robot.getGraphics(), target.position.getX(), target.position.getY(), Color.green);
+        //DebugGraphics.drawBigCircle(robot.getGraphics(), target.position.getX(), target.position.getY(), Color.green);
     }
 
     public synchronized void update(RobotDeathEvent event) {
@@ -44,7 +45,8 @@ public class Tracker {
     public synchronized Track getClosestRobotTrack() {
         Track closest = null;
         for (Track track : buffer.values()) {
-            if (closest == null || closest.top().distance(robot) > track.top().distance(robot)) {
+            Recording top = track.top();
+            if (closest == null || closest.top().distance(robot) > top.distance(robot)) {
                 closest = track;
             }
         }

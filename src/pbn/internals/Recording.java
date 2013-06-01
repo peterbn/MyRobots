@@ -22,11 +22,11 @@ public class Recording {
             velocity,
             headingRadians;
     public final String name;
+    public double energy;
 
     public static Recording record(Robot robot, ScannedRobotEvent event) {
         return new Recording(robot, event);
     }
-
 
 
     private Recording(Robot me, ScannedRobotEvent event) {
@@ -40,24 +40,11 @@ public class Recording {
         position = new Point2D.Double(x, y);
         time = event.getTime();
         velocity = event.getVelocity();
+        energy = event.getEnergy();
     }
 
     public double distance(Robot me) {
         return position.distance(me.getX(), me.getY());
-    }
-
-    public double currentBearing(Robot me, long dt) {
-        Point2D currentPosition = advance(me.getTime() + dt);
-        double myX = me.getX();
-        double myY = me.getY();
-
-        double targetY = currentPosition.getY();
-        double targetX = currentPosition.getX();
-        if (targetX != myX) {
-            return normalAbsoluteAngle(PI/2 - Math.atan2(targetY - myY, targetX - myX));
-        } else {
-            return targetX > myX ? 90 : 270;
-        }
     }
 
     public Point2D advance(long time) {

@@ -14,17 +14,20 @@ public class ShootingSolution {
     private final double distance;
     private final double absoluteShotHeading;
     private final double bulletPower;
+    private final String robotName;
 
     public ShootingSolution(Point2D shootingPosition,
                             Point2D targetPosition,
                             double distance,
                             double absoluteShotHeading,
-                            double bulletPower) {
+                            double bulletPower,
+                            String robotName) {
         this.shootingPosition = shootingPosition;
         this.targetPosition = targetPosition;
         this.distance = distance;
         this.absoluteShotHeading = absoluteShotHeading;
         this.bulletPower = bulletPower;
+        this.robotName = robotName;
     }
 
     public Point2D getShootingPosition() {
@@ -45,6 +48,10 @@ public class ShootingSolution {
 
     public double getBulletPower() {
         return bulletPower;
+    }
+
+    public String getRobotName() {
+        return robotName;
     }
 
     @Override

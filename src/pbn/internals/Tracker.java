@@ -20,11 +20,11 @@ public class Tracker {
         buffer = new HashMap<String, Track>();
     }
 
-    public boolean hasEnemies() {
+    public synchronized boolean hasEnemies() {
         return !buffer.isEmpty();
     }
 
-    public void update(ScannedRobotEvent e) {
+    public synchronized void update(ScannedRobotEvent e) {
         Track track = buffer.get(e.getName());
         if (track == null) {
             track = new Track();
@@ -37,11 +37,11 @@ public class Tracker {
         DebugGraphics.drawBigCircle(robot.getGraphics(), target.position.getX(), target.position.getY(), Color.green);
     }
 
-    public void update(RobotDeathEvent event) {
+    public synchronized void update(RobotDeathEvent event) {
         buffer.remove(event.getName());
     }
 
-    public Track getClosestRobotTrack() {
+    public synchronized Track getClosestRobotTrack() {
         Track closest = null;
         for (Track track : buffer.values()) {
             if (closest == null || closest.top().distance(robot) > track.top().distance(robot)) {

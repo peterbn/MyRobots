@@ -22,13 +22,13 @@ public class Pwnator2000 extends AdvancedRobot
 
     private static final double MAX_GUN_TURN_RATE_RAD = (PI * 20) / 180;
 
-    private static final int RADAR_TURN_RATE = 1000;// MAX_RADAR_TURN_RATE;// - MAX_GUN_TURN_RATE; //max turn rate without interruption
+    private static final int RADAR_TURN_RATE = 1000;
     private static final double GUN_AIM_TIME = ceil(PI / MAX_GUN_TURN_RATE_RAD);
 
     private Tracker tracker;
     private TargetingComputer targetingComputer;
 
-    private boolean aiming = false;
+    private volatile boolean aiming = false;
 
     private double gunCoolingRate;
     private Map<Bullet, ShootingSolution> trackedBullets = new HashMap<Bullet,ShootingSolution>();
@@ -90,7 +90,6 @@ public class Pwnator2000 extends AdvancedRobot
         if (!tracker.hasEnemies()) return;
         out.println("setting target");
         Track currentTarget = tracker.getClosestRobotTrack();
-
         if (currentTarget != null && !aiming) {
             Recording target = currentTarget.top();
             out.println("aiming for " + target);
@@ -108,7 +107,7 @@ public class Pwnator2000 extends AdvancedRobot
                             firingPoint,
                             shotTime);
                     double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                    long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD), gunCoolingTime);
+                    long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
                     if (readyTime < GUN_AIM_TIME) {
                         out.println("Turn will only take " + readyTime + ", recomputing shot");
                         //aim a little closer to the mark
@@ -118,15 +117,16 @@ public class Pwnator2000 extends AdvancedRobot
                                 firingPoint,
                                 shotTime
                         );
+                        turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
                     }
                     out.println("Shooting at: " + solution);
                     out.println("Current gun heading is: " + getGunHeading());
                     out.println("Current tank heading is: " + getHeading());
 
                     out.println("Turning gun: " + toDegrees(turn));
+                    aiming = true;
                     setTurnGunRightRadians(turn);
                     addCustomEvent(new FireGunCondition(this, shotTime, solution));
-                    aiming = true;
                 } catch (NoSolutionException e) {
                     out.println("Unable to compute solution: " + e.getMessage());
                 }

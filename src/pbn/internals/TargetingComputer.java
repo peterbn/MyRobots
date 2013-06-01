@@ -35,17 +35,17 @@ public class TargetingComputer {
             Track track,
             final Point2D firingPoint,
             final long firingTime) throws NoSolutionException {
-        final Recording top = track.top();
+        final Recording target = track.top();
         double power = min(1.5, robot.getEnergy() / 2);
-        Point2D targetPos = getTargetPos(firingPoint, firingTime, power, top);
+        Point2D targetPos = getTargetPos(firingPoint, firingTime, power, target);
         double distance = firingPoint.distance(targetPos);
         if (distance > 400 && power > 1) {
             power = 1;
-            targetPos = getTargetPos(firingPoint, firingTime, power, top);
+            targetPos = getTargetPos(firingPoint, firingTime, power, target);
             distance = firingPoint.distance(targetPos);
         } else if (distance < 200 && robot.getEnergy() > 20) {
             power = 3;
-            targetPos = getTargetPos(firingPoint, firingTime, power, top);
+            targetPos = getTargetPos(firingPoint, firingTime, power, target);
             distance = firingPoint.distance(targetPos);
         }
         DebugGraphics.drawAimLine(robot.getGraphics(), firingPoint, targetPos);

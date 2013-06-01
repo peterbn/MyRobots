@@ -46,13 +46,20 @@ public abstract class DebugGraphics {
     }
 
     public static void drawAimLine(Graphics2D graphics, Point2D firingPoint, Point2D targetPos) {
-        graphics.setColor(Color.green);
+        drawPointerLine(graphics, firingPoint, targetPos, Color.YELLOW);
+    }
+
+    public static void drawBulletLine(Graphics2D g, Point2D firingPoint, Point2D targetPoint) {
+        drawPointerLine(g, firingPoint, targetPoint, Color.RED);
+    }
+
+    private static void drawPointerLine(Graphics2D g, Point2D firingPoint, Point2D targetPos, Color color) {
+        g.setColor(color);
         int fromX = (int) firingPoint.getX();
         int fromY = (int) firingPoint.getY();
         int toX = (int) targetPos.getX();
         int toY = (int) targetPos.getY();
-        graphics.setColor(Color.RED);
-        graphics.drawLine(fromX, fromY, toX, toY);
-        graphics.fillOval(toX - 5, toY - 5, 10, 10);
+        g.drawLine(fromX, fromY, toX, toY);
+        g.fillOval(toX - 5, toY - 5, 10, 10);
     }
 }

@@ -15,13 +15,13 @@ public class FireGunCondition extends Condition {
 
     private final AdvancedRobot robot;
     private final long triggerTime;
-    private final double power;
+    private final ShootingSolution shootingSolution;
 
-    public FireGunCondition(AdvancedRobot robot, long triggerTime, double power) {
+    public FireGunCondition(AdvancedRobot robot, long triggerTime, ShootingSolution shootingSolution) {
         super("FireGun", 99);
         this.robot = robot;
         this.triggerTime = triggerTime;
-        this.power = power;
+        this.shootingSolution = shootingSolution;
     }
 
     @Override
@@ -31,6 +31,10 @@ public class FireGunCondition extends Condition {
     }
 
     public double getPower() {
-        return power;
+        return shootingSolution.getBulletPower();
+    }
+
+    public ShootingSolution getShootingSolution() {
+        return shootingSolution;
     }
 }

@@ -1,6 +1,7 @@
 package pbn.internals;
 
 import robocode.Robot;
+import robocode.Rules;
 import robocode.ScannedRobotEvent;
 
 import java.awt.geom.Point2D;
@@ -19,17 +20,18 @@ public class Recording {
     public final long time;
     public final Point2D position;
     public final double
-            velocity,
-            headingRadians;
+        velocity,
+        turnrate,
+        headingRadians;
     public final String name;
-    public double energy;
+    public final  double energy;
 
-    public static Recording record(Robot robot, ScannedRobotEvent event) {
-        return new Recording(robot, event);
+    public static Recording record(Robot robot, ScannedRobotEvent event, Recording previous) {
+        return new Recording(robot, event, previous);
     }
 
 
-    private Recording(Robot me, ScannedRobotEvent event) {
+    private Recording(Robot me, ScannedRobotEvent event, Recording previous) {
         this.name = event.getName();
         double distance = event.getDistance();
         double bearingRadians = normalAbsoluteAngle(toRadians(me.getHeading()) + event.getBearingRadians());
@@ -41,6 +43,13 @@ public class Recording {
         time = event.getTime();
         velocity = event.getVelocity();
         energy = event.getEnergy();
+        if (previous != null && previous.time < time) {
+            turnrate = (headingRadians - previous.headingRadians) / (time - previous.time);
+
+        } else {
+            turnrate = 0;
+        }
+
     }
 
     public double distance(Robot me) {
@@ -49,8 +58,13 @@ public class Recording {
 
     public Point2D advance(long time) {
         long dt = time - this.time;
-        double dx = getDX() * dt;
-        double dy = getDY() * dt;
+        //iterative, because i'm stupid
+        double dx = 0;
+        double dy = 0;
+        for (long t = 0; t < dt; t++) {
+            dx += sin(headingRadians + turnrate*t) * velocity;
+            dy += cos(headingRadians + turnrate*t) * velocity;
+        }
         return new Point2D.Double(position.getX() + dx, position.getY() + dy);
     }
 
@@ -61,6 +75,7 @@ public class Recording {
                 ", position=" + position +
                 ", velocity=" + velocity +
                 ", headingDegrees=" + toDegrees(headingRadians) +
+                ", turnRateDegrees=" + toDegrees(turnrate) +
                 ", name='" + name + '\'' +
                 '}';
     }

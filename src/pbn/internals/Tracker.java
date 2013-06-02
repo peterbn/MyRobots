@@ -32,7 +32,7 @@ public class Tracker {
             buffer.put(e.getName(), track);
         }
 
-        Recording target = Recording.record(robot, e);
+        Recording target = Recording.record(robot, e, track.top());
         track.add(target);
 
         //DebugGraphics.drawBigCircle(robot.getGraphics(), target.position.getX(), target.position.getY(), Color.green);

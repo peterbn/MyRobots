@@ -28,7 +28,7 @@ public class FireGunCondition extends Condition {
     @Override
     public boolean test() {
         return triggerTime + 10 <= robot.getTime()  || (triggerTime <= robot.getTime()
-                && Utils.isNear(robot.getGunHeadingRadians(), shootingSolution.getAbsoluteShotHeading()));
+                && Math.abs(Math.toDegrees(shootingSolution.getAbsoluteShotHeading() - robot.getGunHeadingRadians())) <=1);
     }
 
     public ShootingSolution getShootingSolution() {

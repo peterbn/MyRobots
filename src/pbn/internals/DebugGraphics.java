@@ -4,6 +4,10 @@ import java.awt.*;
 import java.awt.geom.Point2D;
 import java.util.*;
 
+import static java.lang.Math.PI;
+import static java.lang.Math.sin;
+import static java.lang.StrictMath.cos;
+
 /**
  * Static methods to draw debugging (and targeting) graphics
  */
@@ -33,8 +37,8 @@ public abstract class DebugGraphics {
         int step = 0;
         while (recordings.hasNext()) {
             recording = recordings.next();
-            int dx = (int) recording.getDX();
-            int dy = (int) recording.getDY();
+            int dx = (int) (sin(recording.headingRadians) * recording.velocity);
+            int dy = (int) (cos(recording.headingRadians) * recording.velocity);
             x = (int) recording.position.getX();
             y = (int) recording.position.getY();
             //drawRobotBox(g,xOrig, yOrig, new Color(0xFF, 0xff, 0x00, 128 - (step++)*10));

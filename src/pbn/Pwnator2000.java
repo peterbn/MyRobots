@@ -104,7 +104,7 @@ public class Pwnator2000 extends AdvancedRobot
     private void onFireGunEvent(FireGunCondition fireCondition) {
         out.println("Firing gun at time " + getTime());
         ShootingSolution solution = fireCondition.getShootingSolution();
-        if (solution.getShootingPosition().distance(getX(), getY()) <= 10
+        if ( solution.getShootingPosition().distance(getX(), getY()) <= 10
                 && solution.getFiringTime() >= getTime() - 1) {
             Bullet bullet = setFireBullet(solution.getBulletPower());
             trackedBullets.put(bullet, solution);
@@ -128,8 +128,14 @@ public class Pwnator2000 extends AdvancedRobot
                         currentTarget,
                         firingPoint,
                         shotTime);
+                double turnRateRadians = Rules.getTurnRateRadians(getVelocity());
+                out.println("Tank turn rate is: " + toDegrees(turnRateRadians));
                 double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
+
+                double turnTime = ceil(abs(turn) / (MAX_GUN_TURN_RATE_RAD - turnRateRadians));
+                out.println("Turn time is: " + turnTime);
+                out.println("Gun cooing time is: " + gunCoolingTime);
+                long readyTime = (long) max(1, max(turnTime, ceil(gunCoolingTime)));
                 if (readyTime < GUN_AIM_TIME) {
                     out.println("Turn will only take " + readyTime + ", recomputing shot");
                     //aim a little closer to the mark

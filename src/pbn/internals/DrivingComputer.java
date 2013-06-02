@@ -19,6 +19,7 @@ import static robocode.util.Utils.normalRelativeAngle;
 public class DrivingComputer {
 
 
+    private static final int DODGE_DISTANCE = 60;
 
     enum Segment {
         BOTTOM_LEFT(1, 1),
@@ -83,8 +84,9 @@ public class DrivingComputer {
 
         robot.turnRightRadians(normalRelativeAngle(navData.startHeading - currHeading));
         robot.waitFor(new TurnCompleteCondition(robot));
-        robot.setAhead(navData.distance);
+
         robot.setMaxTurnRate(navData.getMaxTurnRateDeg());
+        robot.setAhead(navData.distance);
         robot.setTurnRightRadians(navData.getTurn());
         lastNavigationTime = robot.getTime();
     }
@@ -186,20 +188,10 @@ public class DrivingComputer {
 
     public void onHitRobot(HitRobotEvent event) {
         robot.setStop(true);
-        if (event.isMyFault()) {
-            backUp();
-        } else {
-        }
     }
 
     public void onHitWall(HitWallEvent event) {
         robot.setStop(true);
-        backUp();
-    }
-
-    private synchronized void backUp() {
-        double sign = signum(navData.distance);
-        robot.setAhead(-60 * sign);
     }
 
     private Segment getSegment(double x, double y) {

@@ -120,7 +120,9 @@ public class DrivingComputer {
                     midPoint.getY() + tan(theta) * dX
             );
         } else {
-            centerOfArc = new Point2D.Double(midPoint.getX() + dY / tan(theta), yWall);
+            centerOfArc = new Point2D.Double(
+                    midPoint.getX() + dY / tan(theta),
+                    yWall);
         }
         drawPointerLine(robot.getGraphics(), from, centerOfArc, color);
 
@@ -140,6 +142,11 @@ public class DrivingComputer {
                 + signum(normalRelativeAngle(heading - normalAbsoluteAngle(getAbsoluteBearing(from, centerOfArc)))) * PI/2;
         double endHeading = normalAbsoluteAngle(getAbsoluteBearing(to, centerOfArc))
                 + signum(normalRelativeAngle(heading - normalAbsoluteAngle(getAbsoluteBearing(to, centerOfArc)))) * PI/2;
+        if (abs(normalRelativeAngle(startHeading - robot.getHeadingRadians())) > PI / 2) {
+            startHeading = normalAbsoluteAngle(PI + startHeading);
+            endHeading = normalAbsoluteAngle(PI + endHeading);
+            distance *= -1;
+        }
 
         return new NavData(from, to, centerOfArc, distance, startHeading, endHeading);
     }
@@ -166,6 +173,11 @@ public class DrivingComputer {
                 distanceRemaining -= dp;
                 x += dp * cos(PI / 2 - heading);
                 y += dp * sin(PI / 2 - heading);
+            } else if (distanceRemaining < 0) {
+                double dp = max(distanceRemaining, velocity);
+                distanceRemaining -= dp;
+                x += dp * cos(PI / 2 - heading);
+                y += dp * sin(PI / 2 - heading);
             }
         }
         return new Point2D.Double(x, y);
@@ -173,24 +185,21 @@ public class DrivingComputer {
 
 
     public void onHitRobot(HitRobotEvent event) {
+        robot.setStop(true);
         if (event.isMyFault()) {
             backUp();
+        } else {
         }
     }
 
     public void onHitWall(HitWallEvent event) {
+        robot.setStop(true);
         backUp();
     }
 
     private synchronized void backUp() {
-        if (robot.getVelocity() < 0) {
-            robot.setAhead(30);
-
-        } else {
-            robot.setAhead(30);
-        }
-        robot.setTurnRightRadians(0);
-        iterate();
+        double sign = signum(navData.distance);
+        robot.setAhead(-60 * sign);
     }
 
     private Segment getSegment(double x, double y) {
@@ -260,7 +269,7 @@ class NavData {
         t += dtD;
         double accelerationDistance = (a * pow(dtA, 2))/2;
         double decelerationDistance = (d * pow(dtD, 2))/2;
-        double remainingDistance = distance - (accelerationDistance + decelerationDistance);
+        double remainingDistance = abs(distance) - (accelerationDistance + decelerationDistance);
         t += max(remainingDistance / Rules.MAX_VELOCITY, 0);
         return t;
     }

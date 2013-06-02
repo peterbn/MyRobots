@@ -41,6 +41,11 @@ public class Pwnator2000 extends AdvancedRobot
     @Override
 	public void run() {
         // Initialization of the robot should be put here
+        out.println("Pimpin' bot!");
+        double width = getWidth();
+        double height = getHeight();
+        setColors(new Color(10, 10, 10, 20), Color.RED, new Color(200, 200, 200, 0), Color.ORANGE, new Color(255, 0, 255, 128));
+
         out.println("Started robot");
         this.tracker = new Tracker(this);
         out.println("Tracking subsystem online!");
@@ -99,10 +104,9 @@ public class Pwnator2000 extends AdvancedRobot
     private void onFireGunEvent(FireGunCondition fireCondition) {
         out.println("Firing gun at time " + getTime());
         ShootingSolution solution = fireCondition.getShootingSolution();
-        Bullet bullet = null;
-        if (solution.getShootingPosition().distance(getX(), getY()) <= 5
+        if (solution.getShootingPosition().distance(getX(), getY()) <= 10
                 && solution.getFiringTime() >= getTime() - 1) {
-            bullet = setFireBullet(solution.getBulletPower());
+            Bullet bullet = setFireBullet(solution.getBulletPower());
             trackedBullets.put(bullet, solution);
         }
         pendingSolutions.remove(solution);
@@ -125,7 +129,7 @@ public class Pwnator2000 extends AdvancedRobot
                         firingPoint,
                         shotTime);
                 double turn = normalRelativeAngle(solution.getAbsoluteShotHeading() - getGunHeadingRadians());
-                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 2;
+                long readyTime = (long) max(ceil(turn / MAX_GUN_TURN_RATE_RAD) , ceil(gunCoolingTime)) + 1;
                 if (readyTime < GUN_AIM_TIME) {
                     out.println("Turn will only take " + readyTime + ", recomputing shot");
                     //aim a little closer to the mark

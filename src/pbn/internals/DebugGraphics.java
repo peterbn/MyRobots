@@ -26,8 +26,8 @@ public abstract class DebugGraphics {
         Iterator<Recording> recordings = track.snapshot().iterator();
         Recording recording = recordings.next();
         Point2D advance = recording.advance(time);
-        int x = (int) advance.getX();
-        int y = (int) advance.getY();
+        int x;
+        int y;
         int xOrig = (int) recording.position.getX();
         int yOrig = (int) recording.position.getY();
         int step = 0;
@@ -37,7 +37,7 @@ public abstract class DebugGraphics {
             int dy = (int) recording.getDY();
             x = (int) recording.position.getX();
             y = (int) recording.position.getY();
-            drawRobotBox(g,xOrig, yOrig, new Color(0xFF, 0xff, 0x00, 128 - (step++)*10));
+            //drawRobotBox(g,xOrig, yOrig, new Color(0xFF, 0xff, 0x00, 128 - (step++)*10));
             g.setColor(Color.yellow);
             g.drawLine(xOrig, yOrig, x + dx, y + dy);
             xOrig = (int) recording.position.getX();

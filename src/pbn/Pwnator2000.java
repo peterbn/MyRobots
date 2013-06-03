@@ -107,7 +107,9 @@ public class Pwnator2000 extends AdvancedRobot
         if ( solution.getShootingPosition().distance(getX(), getY()) <= 10
                 && solution.getFiringTime() >= getTime() - 1) {
             Bullet bullet = setFireBullet(solution.getBulletPower());
-            trackedBullets.put(bullet, solution);
+            if (bullet != null) {
+                trackedBullets.put(bullet, solution);
+            }
         }
         pendingSolutions.remove(solution);
         aiming = false;
@@ -246,7 +248,7 @@ public class Pwnator2000 extends AdvancedRobot
             boolean b = hasEnemies && !aiming && gunIsCoolEnough &&  hasNavData;
             if (b) {
                 Recording top = tracker.getClosestRobotTrack().top();
-                return top.time > getTime() - 2 && top.distance(Pwnator2000.this) < 600;
+                return top.time > getTime() - 4 && top.distance(Pwnator2000.this) < 600;
             }
             return false;
         }

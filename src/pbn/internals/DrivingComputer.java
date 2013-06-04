@@ -8,8 +8,12 @@ import java.awt.geom.Point2D;
 import java.util.Random;
 
 import static java.lang.Math.*;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static pbn.internals.DebugGraphics.drawPointerLine;
 import static pbn.internals.DrivingComputer.Segment.*;
+import static pbn.internals.TargetingComputer.dx;
+import static pbn.internals.TargetingComputer.dy;
 import static pbn.internals.TargetingComputer.getAbsoluteBearing;
 import static robocode.util.Utils.normalAbsoluteAngle;
 import static robocode.util.Utils.normalRelativeAngle;
@@ -40,9 +44,6 @@ public class DrivingComputer {
     }
 
     private NavData navData;
-    private long lastNavigationTime;
-    private double targetHeading;
-    private double maxTurnRate;
 
     private final AdvancedRobot robot;
 
@@ -88,7 +89,6 @@ public class DrivingComputer {
         robot.setMaxTurnRate(navData.getMaxTurnRateDeg());
         robot.setAhead(navData.distance);
         robot.setTurnRightRadians(navData.getTurn());
-        lastNavigationTime = robot.getTime();
     }
 
     private NavData computeNavigation(Point2D from, Point2D to) {
@@ -98,12 +98,11 @@ public class DrivingComputer {
         double heading = getAbsoluteBearing(from, to);
         double directDistance = from.distance(to);
         Point2D midPoint = new Point2D.Double(
-                from.getX() + sin(heading) * (directDistance/2),
-                from.getY() + cos(heading) * (directDistance/2)
+                from.getX() + dx(heading) * (directDistance/2),
+                from.getY() + dy(heading) * (directDistance/2)
         );
         drawPointerLine(robot.getGraphics(), from, midPoint, Color.yellow);
         double centerHeading = normalAbsoluteAngle(heading + PI / 2);
-        double theta = PI/2 - centerHeading;
         int xWall = midPoint.getX() > bfX2 ? bfX : 0;
         double dX = xWall - midPoint.getX();
 
@@ -111,21 +110,16 @@ public class DrivingComputer {
         double dY = yWall - midPoint.getY();
         Color color = Color.MAGENTA;
         robot.setDebugProperty("centerHeading", String.valueOf(toDegrees(centerHeading)));
-        robot.setDebugProperty("theta", String.valueOf(toDegrees(theta)));
-        robot.setDebugProperty("tan(theta)", String.valueOf(tan(theta)));
+        robot.setDebugProperty("tan(theta)", String.valueOf(tan(centerHeading)));
         robot.setDebugProperty("dx", String.valueOf(dX));
         robot.setDebugProperty("dy", String.valueOf(dY));
-        if (abs(dX) < abs(dY)) {
-            //shortest to the vertical wall
-            color = Color.CYAN;
-            centerOfArc = new Point2D.Double(xWall,
-                    midPoint.getY() + tan(theta) * dX
-            );
-        } else {
-            centerOfArc = new Point2D.Double(
-                    midPoint.getX() + dY / tan(theta),
-                    yWall);
-        }
+        Point2D centerA = new Point2D.Double(xWall,
+                midPoint.getY() + dX / tan(centerHeading)
+        );
+        Point2D.Double centerB = new Point2D.Double(
+                midPoint.getX() + dY * tan(centerHeading),
+                yWall);
+        centerOfArc = midPoint.distance(centerA) < midPoint.distance(centerB) ? centerA : centerB;
         drawPointerLine(robot.getGraphics(), from, centerOfArc, color);
 
 
@@ -173,13 +167,13 @@ public class DrivingComputer {
             if (distanceRemaining > 0) {
                 double dp = min(distanceRemaining, velocity);
                 distanceRemaining -= dp;
-                x += dp * cos(PI / 2 - heading);
-                y += dp * sin(PI / 2 - heading);
+                x += dp * dx(heading);
+                y += dp * dy(heading);
             } else if (distanceRemaining < 0) {
                 double dp = max(distanceRemaining, velocity);
                 distanceRemaining -= dp;
-                x += dp * cos(PI / 2 - heading);
-                y += dp * sin(PI / 2 - heading);
+                x += dp * dx(heading);
+                y += dp * dy(heading);
             }
         }
         return new Point2D.Double(x, y);
@@ -206,13 +200,6 @@ public class DrivingComputer {
 
     public void paint(Graphics2D g) {
         if (navData != null) {
-            int fromX = (int) navData.from.getX();
-            int fromY = (int) navData.from.getY();
-            int toX = (int) navData.to.getX();
-            int toY = (int) navData.to.getY();
-            g.setColor(Color.RED);
-            g.drawArc(fromX, fromY, fromX - toX, fromY - toY, (int) navData.startHeading, (int) (navData.startHeading - normalRelativeAngle(navData.endHeading - navData.startHeading)));
-
             drawPointerLine(g, navData.from, navData.to, Color.GREEN);
             drawPointerLine(g, navData.from, navData.centerOfArc, Color.BLUE);
             drawPointerLine(g, navData.to, navData.centerOfArc, Color.BLUE);

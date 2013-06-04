@@ -77,10 +77,11 @@ public class TargetingComputer {
 
 
     private boolean outsideBattleField(Point2D targetPos) {
-        return targetPos.getX() < 0
-                || targetPos.getX() > robot.getBattleFieldWidth()
-                || targetPos.getY() < 0
-                || targetPos.getY() > robot.getBattleFieldHeight();
+        int width2 = (int) robot.getWidth() / 4;
+        return targetPos.getX() < width2
+                || targetPos.getX() > robot.getBattleFieldWidth() - width2
+                || targetPos.getY() < width2
+                || targetPos.getY() > robot.getBattleFieldHeight() - width2;
 
     }
 
@@ -103,5 +104,11 @@ public class TargetingComputer {
         return normalAbsoluteAngle(angle);
     }
 
+    public static double dx(double angle) {
+        return sin(angle);
+    }
 
+    public static double dy(double angle) {
+        return cos(angle);
+    }
 }

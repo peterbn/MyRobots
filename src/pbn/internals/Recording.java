@@ -7,6 +7,8 @@ import robocode.ScannedRobotEvent;
 import java.awt.geom.Point2D;
 
 import static java.lang.Math.*;
+import static pbn.internals.TargetingComputer.dx;
+import static pbn.internals.TargetingComputer.dy;
 import static robocode.util.Utils.normalAbsoluteAngle;
 
 /**
@@ -62,8 +64,8 @@ public class Recording {
         double dx = 0;
         double dy = 0;
         for (long t = 0; t < dt; t++) {
-            dx += sin(headingRadians + turnrate*t) * velocity;
-            dy += cos(headingRadians + turnrate*t) * velocity;
+            dx += dx(headingRadians + turnrate * t) * velocity;
+            dy += dy(headingRadians + turnrate * t) * velocity;
         }
         return new Point2D.Double(position.getX() + dx, position.getY() + dy);
     }
@@ -80,11 +82,4 @@ public class Recording {
                 '}';
     }
 
-    public double getDX() {
-        return -cos(headingRadians + PI/2) * velocity;
-    }
-
-    public double getDY() {
-        return sin(headingRadians + PI/2) * velocity;
-    }
 }

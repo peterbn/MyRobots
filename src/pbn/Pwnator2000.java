@@ -60,10 +60,6 @@ public class Pwnator2000 extends AdvancedRobot
         gunCoolingRate = getGunCoolingRate();
 
         //set up infinite radar turn
-        out.println("Bringing Radar online");
-        addCustomEvent(new RadarTurnCompleteCondition(this));
-        setTurnRadarRightRadians(RADAR_TURN_RATE);
-        out.println("Rardar online");
         addCustomEvent(new AimReadyCondition());
         out.println("Aim subsystem started");
 
@@ -72,6 +68,7 @@ public class Pwnator2000 extends AdvancedRobot
         // Robot main loop
         //noinspection InfiniteLoopStatement
         while (true) {
+            setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
             drivingComputer.iterate();
         }
     }
@@ -81,11 +78,6 @@ public class Pwnator2000 extends AdvancedRobot
         super.onCustomEvent(event);
         //switch on event
         Condition condition = event.getCondition();
-        //PERSISTENT EVENTS - remember to return after dispatch
-        if (condition instanceof RadarTurnCompleteCondition) {
-            setTurnRadarRightRadians(RADAR_TURN_RATE);
-            return;
-        }
         if (condition instanceof AimReadyCondition) {
             aim();
             return;

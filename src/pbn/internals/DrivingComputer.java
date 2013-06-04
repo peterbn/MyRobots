@@ -46,11 +46,13 @@ public class DrivingComputer {
     private NavData navData;
 
     private final AdvancedRobot robot;
+    private double turnRateDeg = Rules.MAX_TURN_RATE;
 
     private final int bfX, bfY;
     private final int bfX2, bfY2;
     private final int buffer;
     private final Random random = Utils.getRandom();
+    private boolean dodging = false;
 
     public DrivingComputer(AdvancedRobot robot) {
         this.robot = robot;
@@ -67,9 +69,11 @@ public class DrivingComputer {
     }
 
     public synchronized void iterate() {
+        //wait, and get ready for a turn onto the new course
         robot.waitFor(new MoveCompleteCondition(robot));
-        robot.waitFor(new TurnCompleteCondition(robot));
-        robot.setMaxTurnRate(Rules.MAX_TURN_RATE);
+        dodging = false;
+//        robot.waitFor(new TurnCompleteCondition(robot));
+        //compute start and end points
         double currX = robot.getX();
         double currY = robot.getY();
         Point2D from = new Point2D.Double(currX, currY);
@@ -79,19 +83,28 @@ public class DrivingComputer {
         double nextX = min(bfX - buffer, max(buffer, random.nextInt(bfX2) + (nextSegment.xMult - 1) * bfX2));
         double nextY = min(bfY - buffer, max(buffer, random.nextInt(bfY2) + (nextSegment.yMult - 1) * bfY2));
         Point2D to = new Point2D.Double(nextX, nextY);
-        double currHeading = robot.getHeadingRadians();
-        navData = computeNavigation(from, to);
-        robot.setDebugProperty("NavData", navData.toString());
+        navigate(from, to);
+    }
 
+    private void setTurnRateDeg(double turnRate) {
+        this.turnRateDeg = turnRate;
+        robot.setMaxTurnRate(turnRate);
+    }
+
+    private void navigate(Point2D from, Point2D to) {
+        double currHeading = robot.getHeadingRadians();
+        navData = computeNavigationArc(from, to);
+        robot.setDebugProperty("NavData", navData.toString());
+        setTurnRateDeg(Rules.MAX_TURN_RATE);
         robot.turnRightRadians(normalRelativeAngle(navData.startHeading - currHeading));
         robot.waitFor(new TurnCompleteCondition(robot));
 
-        robot.setMaxTurnRate(navData.getMaxTurnRateDeg());
+        setTurnRateDeg(navData.getMaxTurnRateDeg());
         robot.setAhead(navData.distance);
         robot.setTurnRightRadians(navData.getTurn());
     }
 
-    private NavData computeNavigation(Point2D from, Point2D to) {
+    private NavData computeNavigationArc(Point2D from, Point2D to) {
         Point2D centerOfArc;
 
         double heading = getAbsoluteBearing(from, to);
@@ -106,7 +119,6 @@ public class DrivingComputer {
 
         int yWall = midPoint.getY() > bfY2 ? bfY : 0;
         double dY = yWall - midPoint.getY();
-        Color color = Color.MAGENTA;
         robot.setDebugProperty("centerHeading", String.valueOf(toDegrees(centerHeading)));
         robot.setDebugProperty("tan(theta)", String.valueOf(tan(centerHeading)));
         robot.setDebugProperty("dx", String.valueOf(dX));
@@ -121,9 +133,6 @@ public class DrivingComputer {
 
 
         double traversedAngle = abs(getAbsoluteBearing(centerOfArc, to) - getAbsoluteBearing(centerOfArc, from));
-        if (traversedAngle > PI) {
-            traversedAngle -= PI;
-        }
         robot.setDebugProperty("traversedAngle" , String.valueOf(toDegrees(traversedAngle)));
         double radius = centerOfArc.distance(to);
         robot.setDebugProperty("radius" , String.valueOf(radius));
@@ -133,24 +142,25 @@ public class DrivingComputer {
                 + signum(normalRelativeAngle(heading - normalAbsoluteAngle(getAbsoluteBearing(from, centerOfArc)))) * PI/2;
         double endHeading = normalAbsoluteAngle(getAbsoluteBearing(to, centerOfArc))
                 + signum(normalRelativeAngle(heading - normalAbsoluteAngle(getAbsoluteBearing(to, centerOfArc)))) * PI/2;
+        //reverse the robot if that is closer to the start heading
         if (abs(normalRelativeAngle(startHeading - robot.getHeadingRadians())) > PI / 2) {
             startHeading = normalAbsoluteAngle(PI + startHeading);
             endHeading = normalAbsoluteAngle(PI + endHeading);
             distance *= -1;
         }
+        traversedAngle = abs(normalRelativeAngle(startHeading - endHeading));
+        robot.setDebugProperty("traversedAngle" , String.valueOf(toDegrees(traversedAngle)));
+
 
         return new NavData(from, to, centerOfArc, distance, startHeading, endHeading);
     }
 
     public Point2D getFiringPosition(long shotTime) {
-        if (navData == null) {
-            return null;
-        }
         double x = robot.getX();
         double y = robot.getY();
         double distanceRemaining = robot.getDistanceRemaining();
         double remainingRadians = robot.getTurnRemainingRadians();
-        double turnRate = (PI * navData.getMaxTurnRateDeg()) / 180;
+        double turnRate = (PI * this.turnRateDeg) / 180;
         double velocity = robot.getVelocity();
         double heading = robot.getHeadingRadians();
         for (long t = 0; t < shotTime; t++) {
@@ -159,28 +169,52 @@ public class DrivingComputer {
                 heading += dh;
                 remainingRadians -= dh;
             }
+            double dp = 0;
             if (distanceRemaining > 0) {
-                double dp = min(distanceRemaining, velocity);
-                distanceRemaining -= dp;
-                x += dp * dx(heading);
-                y += dp * dy(heading);
+                dp = min(distanceRemaining, velocity);
             } else if (distanceRemaining < 0) {
-                double dp = max(distanceRemaining, velocity);
-                distanceRemaining -= dp;
-                x += dp * dx(heading);
-                y += dp * dy(heading);
+               dp = max(distanceRemaining, velocity);
             }
+            distanceRemaining -= dp;
+            x += dp * dx(heading);
+            y += dp * dy(heading);
         }
         return new Point2D.Double(x, y);
     }
 
 
     public void onHitRobot(HitRobotEvent event) {
-        robot.setStop(true);
+        if (dodging) return;
+        dodging = true;
+        double eventBearing = event.getBearingRadians();
+        robot.setTurnRightRadians(0);
+        if (abs(normalRelativeAngle(eventBearing)) <= PI / 2) {
+            robot.setAhead(-150);
+        } else {
+            robot.setAhead(150);
+        }
     }
 
     public void onHitWall(HitWallEvent event) {
-        robot.setStop(true);
+        robot.setAhead(0);
+        robot.setTurnRightRadians(0);
+    }
+
+
+    public void onHitByBullet(HitByBulletEvent e) {
+        if (dodging) return;
+        dodging = true;
+        int dodge = 30 + random.nextInt(120);
+        setTurnRateDeg(Rules.MAX_TURN_RATE);
+        if (robot.getDistanceRemaining() != 0) {
+            robot.setAhead(-signum(robot.getDistanceRemaining()) * dodge);
+        } else {
+            robot.setAhead(dodge);
+        }
+    }
+
+    public void onStatus(StatusEvent e) {
+        //Do wall skimming
     }
 
     private Segment getSegment(double x, double y) {

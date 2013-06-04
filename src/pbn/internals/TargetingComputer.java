@@ -37,7 +37,7 @@ public class TargetingComputer {
             final Point2D firingPoint,
             final long firingTime) throws NoSolutionException {
         final Recording target = track.top();
-        double power = min(1.5, robot.getEnergy() / 2);
+        double power = min(max(target.energy, 0.1), min(1.5, robot.getEnergy() / 2));
         Point2D targetPos = getTargetPos(firingPoint, firingTime, power, target);
         double distance = firingPoint.distance(targetPos);
         if (distance > 400 && power > 1) {

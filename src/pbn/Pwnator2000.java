@@ -173,9 +173,8 @@ public class Pwnator2000 extends AdvancedRobot
 	 */
     @Override
 	public void onHitByBullet(HitByBulletEvent e) {
-		// Replace the next line with any behavior you would like
-		// back(10);
-	}
+        drivingComputer.onHitByBullet(e);
+    }
 
     @Override
     public void onBulletHit(BulletHitEvent event) {
@@ -210,7 +209,14 @@ public class Pwnator2000 extends AdvancedRobot
         tracker.update(event);
     }
 
+    @Override
+    public void onStatus(StatusEvent e) {
+        super.onStatus(e);
+        drivingComputer.onStatus(e);
+    }
+
     public void onPaint(Graphics2D g) {
+        setInterruptible(true);
         drivingComputer.paint(g);
         tracker.paint(g);
         for (ShootingSolution solution : pendingSolutions) {
@@ -240,7 +246,7 @@ public class Pwnator2000 extends AdvancedRobot
             boolean b = hasEnemies && !aiming && gunIsCoolEnough &&  hasNavData;
             if (b) {
                 Recording top = tracker.getClosestRobotTrack().top();
-                return top.time > getTime() - 4 && top.distance(Pwnator2000.this) < 600;
+                return top.time > getTime() - 4 && top.distance(Pwnator2000.this) < 800;
             }
             return false;
         }

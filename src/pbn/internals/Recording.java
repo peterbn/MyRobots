@@ -1,7 +1,6 @@
 package pbn.internals;
 
 import robocode.Robot;
-import robocode.Rules;
 import robocode.ScannedRobotEvent;
 
 import java.awt.geom.Point2D;
@@ -12,19 +11,14 @@ import static pbn.internals.TargetingComputer.dy;
 import static robocode.util.Utils.normalAbsoluteAngle;
 
 /**
- * Created by IntelliJ IDEA.
- * User: pbn
- * Date: 01-06-13
- * Time: 11:03
- * To change this template use File | Settings | File Templates.
  */
 public class Recording {
     public final long time;
     public final Point2D position;
     public final double
-        velocity,
-        turnrate,
-        headingRadians;
+            velocity,
+            turnRate,
+            headingRadians;
     public final String name;
     public final  double energy;
 
@@ -46,10 +40,9 @@ public class Recording {
         velocity = event.getVelocity();
         energy = event.getEnergy();
         if (previous != null && previous.time < time) {
-            turnrate = (headingRadians - previous.headingRadians) / (time - previous.time);
-
+            turnRate = (headingRadians - previous.headingRadians) / (time - previous.time);
         } else {
-            turnrate = 0;
+            turnRate = 0;
         }
 
     }
@@ -64,8 +57,8 @@ public class Recording {
         double dx = 0;
         double dy = 0;
         for (long t = 0; t < dt; t++) {
-            dx += dx(headingRadians + turnrate * t) * velocity;
-            dy += dy(headingRadians + turnrate * t) * velocity;
+            dx += dx(headingRadians + turnRate * t) * velocity;
+            dy += dy(headingRadians + turnRate * t) * velocity;
         }
         return new Point2D.Double(position.getX() + dx, position.getY() + dy);
     }
@@ -77,7 +70,7 @@ public class Recording {
                 ", position=" + position +
                 ", velocity=" + velocity +
                 ", headingDegrees=" + toDegrees(headingRadians) +
-                ", turnRateDegrees=" + toDegrees(turnrate) +
+                ", turnRateDegrees=" + toDegrees(turnRate) +
                 ", name='" + name + '\'' +
                 '}';
     }

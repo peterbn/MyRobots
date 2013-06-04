@@ -93,7 +93,6 @@ public class DrivingComputer {
 
     private NavData computeNavigation(Point2D from, Point2D to) {
         Point2D centerOfArc;
-        drawPointerLine(robot.getGraphics(), from, to, Color.GREEN);
 
         double heading = getAbsoluteBearing(from, to);
         double directDistance = from.distance(to);
@@ -101,7 +100,6 @@ public class DrivingComputer {
                 from.getX() + dx(heading) * (directDistance/2),
                 from.getY() + dy(heading) * (directDistance/2)
         );
-        drawPointerLine(robot.getGraphics(), from, midPoint, Color.yellow);
         double centerHeading = normalAbsoluteAngle(heading + PI / 2);
         int xWall = midPoint.getX() > bfX2 ? bfX : 0;
         double dX = xWall - midPoint.getX();
@@ -120,9 +118,6 @@ public class DrivingComputer {
                 midPoint.getX() + dY * tan(centerHeading),
                 yWall);
         centerOfArc = midPoint.distance(centerA) < midPoint.distance(centerB) ? centerA : centerB;
-        drawPointerLine(robot.getGraphics(), from, centerOfArc, color);
-
-
 
 
         double traversedAngle = abs(getAbsoluteBearing(centerOfArc, to) - getAbsoluteBearing(centerOfArc, from));

@@ -2,9 +2,8 @@ package pbn.internals;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
-import java.util.*;
+import java.util.Iterator;
 
-import static java.lang.Math.PI;
 import static java.lang.Math.sin;
 import static java.lang.StrictMath.cos;
 
@@ -15,16 +14,7 @@ public abstract class DebugGraphics {
 
 
     private static final Color RED_TRANSPARENT = new Color(0xff, 0x00, 0x00, 0x80);
-    private static final Color YELLOW_TRANSPARENT = new Color(0xFF, 0xff, 0x00, 0x80);
     private static final Color WHITE_TRANSPARENT = new Color(0xFF, 0xFF, 0xFF, 0x80);
-
-    public static void drawBigCircle(Graphics2D g, double x, double y, Color color) {
-        g.setColor(color);
-        g.drawOval((int) (x - 55), (int) (y - 55), 110, 110);
-        g.drawOval((int) (x - 56), (int) (y - 56), 112, 112);
-        g.drawOval((int) (x - 59), (int) (y - 59), 118, 118);
-        g.drawOval((int) (x - 60), (int) (y - 60), 120, 120);
-    }
 
     public static void drawTrackOverlay(Graphics2D g, Track track, long time) {
         Iterator<Recording> recordings = track.snapshot().iterator();
@@ -41,7 +31,6 @@ public abstract class DebugGraphics {
             int dy = (int) (cos(recording.headingRadians) * recording.velocity);
             x = (int) recording.position.getX();
             y = (int) recording.position.getY();
-            //drawRobotBox(g,xOrig, yOrig, new Color(0xFF, 0xff, 0x00, 128 - (step++)*10));
             g.setColor(Color.yellow);
             g.drawLine(xOrig, yOrig, x + dx, y + dy);
             xOrig = (int) recording.position.getX();

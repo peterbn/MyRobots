@@ -67,8 +67,8 @@ public class Pwnator2000 extends AdvancedRobot
 
         // Robot main loop
         //noinspection InfiniteLoopStatement
+        setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
         while (true) {
-            setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
             drivingComputer.iterate();
         }
     }

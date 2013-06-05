@@ -5,10 +5,10 @@ import robocode.*;
 import java.awt.*;
 import java.awt.geom.Point2D;
 import java.util.*;
-import java.util.List;
 
 import static java.lang.Math.*;
 import static java.lang.Math.PI;
+import static robocode.util.Utils.isNear;
 import static robocode.util.Utils.normalAbsoluteAngle;
 import static robocode.util.Utils.normalRelativeAngle;
 
@@ -26,12 +26,11 @@ public class OMGNator extends AdvancedRobot {
     private Set<Bullet> bullets;
     private int bfX, bfY, bfX2, bfY2;
     private int direction = 1;
-    private String targetBot;
     private String lookingFor;
 
     @Override
     public void run() {
-        setColors(Color.PINK, new Color(0, 0xFF, 0xFF, 0x40), new Color(0,0,0,0));
+        setColors(Color.PINK, new Color(0x00ffff), Color.WHITE);
         tracks = new HashMap<String, Recording>(getOthers());
         bullets = new HashSet<Bullet>();
         bfX = (int) getBattleFieldWidth();
@@ -44,16 +43,12 @@ public class OMGNator extends AdvancedRobot {
 
         //noinspection InfiniteLoopStatement
         do {
-            if (targetBot == null && lookingFor == null) {
+            if ( lookingFor == null) {
                 setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
             } else {
-                try {
-                    Recording recording = tracks.get(targetBot);
-                    if (recording.time < getTime() - 3) {
-                        targetBot = null;
-                    }
-                } catch (NullPointerException e) {
-                    targetBot = null;
+                Recording recording = tracks.get(lookingFor);
+                if (recording == null || recording.time < getTime() - 3) {
+                    lookingFor = null;
                 }
             }
             navigate();
@@ -122,28 +117,31 @@ public class OMGNator extends AdvancedRobot {
                 bullets.add(new Bullet(event.getTime(), Rules.getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()), record.position));
             }
         } catch (NullPointerException ignored) {}
-        if (getOthers() == 1) {
-            targetBot = event.getName();
-            setInterruptible(true);
-            Point2D advance = record.advance(getTime() + 1);
-            double d = normalRelativeAngle(
-                    getAbsoluteBearing(currentPosition(), advance) - getRadarHeadingRadians());
-            if (d != 0) {
-                setTurnRadarRightRadians(d);
-            }
-        } else {
-            if (tracks.size() == getOthers() && (lookingFor == null || record.name.equals(lookingFor) )) {
-                Recording oldest = record;
-                for (Recording recording : tracks.values()) {
-                    if (oldest.time > recording.time) {
-                        oldest = recording;
-                    }
+        if (tracks.size() == getOthers() && (lookingFor == null || record.name.equals(lookingFor))) {
+            Recording oldest = record;
+            for (Recording recording : tracks.values()) {
+                if (oldest.time > recording.time) {
+                    oldest = recording;
                 }
-                lookingFor = oldest.name;
-                double d = signum(normalRelativeAngle(getAbsoluteBearing(currentPosition(), oldest.position) - getRadarHeadingRadians()));
-                setTurnRadarRightRadians(d * Double.POSITIVE_INFINITY);
+            }
+            lookingFor = oldest.name;
+            double d = signum(normalRelativeAngle(getAbsoluteBearing(currentPosition(), oldest.position) - getRadarHeadingRadians()));
+            setTurnRadarRightRadians(d * Double.POSITIVE_INFINITY);
+        }
+    }
+
+    private Recording getTarget() {
+        Recording target = null;
+        double distance = Double.POSITIVE_INFINITY;
+        for (Recording recording : tracks.values()) {
+            Point2D advance = recording.advance(getTime() + 5);
+            double dp = advance.distance(currentPosition());
+            if (dp < distance) {
+                distance = dp;
+                target = recording;
             }
         }
+        return target;
     }
 
     @Override

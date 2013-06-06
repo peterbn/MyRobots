@@ -246,6 +246,12 @@ public class PinkPanther extends AdvancedRobot {
     public static double dy(double angle) {
         return cos(angle);
     }
+    private Point2D advanceBullet(Bullet bullet) {
+        double x = bullet.position.getX() + (getTime() - bullet.fireTime) * dx(bullet.heading) * bullet.speed;
+        double y = bullet.position.getY() + (getTime() - bullet.fireTime) * dy(bullet.heading) * bullet.speed;
+        return new Point2D.Double(x, y);
+    }
+
     @Override
     public void onPaint(Graphics2D g) {
         Map<Point2D, Integer> forcePoints = getForcePoints();
@@ -264,12 +270,6 @@ public class PinkPanther extends AdvancedRobot {
             g.fillOval((int) bulletPos.getX() - 5, (int) bulletPos.getY() - 5, 10, 10);
 
         }
-    }
-
-    private Point2D advanceBullet(Bullet bullet) {
-        double x = bullet.position.getX() + (getTime() - bullet.fireTime) * dx(bullet.heading) * bullet.speed;
-        double y = bullet.position.getY() + (getTime() - bullet.fireTime) * dy(bullet.heading) * bullet.speed;
-        return new Point2D.Double(x, y);
     }
 
     public static void drawPointerLine(Graphics2D g, Point2D firingPoint, Point2D targetPos, Color color) {

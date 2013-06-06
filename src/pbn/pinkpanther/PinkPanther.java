@@ -1,4 +1,4 @@
-package pbn.omgnator;
+package pbn.pinkpanther;
 
 import robocode.*;
 
@@ -14,7 +14,7 @@ import static robocode.util.Utils.normalRelativeAngle;
 /**
  * An anti-gravity bot
  */
-public class OMGNator extends AdvancedRobot {
+public class PinkPanther extends AdvancedRobot {
 
     private static final int BOT_WEIGHT = 4;
     private static final int BULLET_WEIGHT = 1;
@@ -24,13 +24,12 @@ public class OMGNator extends AdvancedRobot {
     private Map<String, Recording> tracks;
     private Set<Bullet> bullets;
     private int bfX, bfY, bfX2, bfY2;
-    private int direction = 1;
     private String lookingFor;
     private String target;
 
     @Override
     public void run() {
-        setColors(Color.PINK, new Color(0x1000ffff, true), Color.WHITE, Color.RED, new Color(0x8000ffff,true));
+        setColors(Color.PINK, Color.PINK, Color.PINK, Color.PINK, Color.PINK);
         tracks = new HashMap<String, Recording>(getOthers());
         bullets = new HashSet<Bullet>();
         bfX = (int) getBattleFieldWidth();
@@ -59,10 +58,8 @@ public class OMGNator extends AdvancedRobot {
     }
 
     private void gun() {
-        if (target == null) {
-            //take aim
-            target = getTarget();
-        }
+        //take aim
+        setTarget();
         if (target != null) {
             setDebugProperty("Current target", target);
             Recording targetRecord = tracks.get(target);
@@ -97,14 +94,13 @@ public class OMGNator extends AdvancedRobot {
 
         double targetBearing = getAbsoluteBearing(currentPosition(), destination);
         double turn = normalRelativeAngle(targetBearing - getHeadingRadians());
+        double ahead = currentPosition().distance(destination) / 2;
         if (abs(turn) > PI2) {
-            direction = -1;
+            ahead *= -1;
             turn -= PI2;
-        } else {
-            direction = 1;
         }
-        setAhead( direction* currentPosition().distance(destination) / 2);
-        setTurnRightRadians(direction* turn);
+        setAhead(ahead);
+        setTurnRightRadians(turn);
     }
 
     private double[] getTotalVector(Map<Point2D, Integer> forcePoints) {
@@ -183,18 +179,22 @@ public class OMGNator extends AdvancedRobot {
         }
     }
 
-    private String getTarget() {
-        Recording target = null;
-        double distance = Double.POSITIVE_INFINITY;
-        for (Recording recording : tracks.values()) {
-            Point2D advance = recording.advance(getTime() + 5);
-            double dp = advance.distance(currentPosition());
-            if (dp < distance) {
-                distance = dp;
-                target = recording;
+    private void setTarget() {
+        if (this.target == null) {
+            Recording newTarget = null;
+            double distance = Double.POSITIVE_INFINITY;
+            for (Recording recording : tracks.values()) {
+                Point2D advance = recording.advance(getTime() + 5);
+                double dp = advance.distance(currentPosition());
+                if (dp < distance) {
+                    distance = dp;
+                    newTarget = recording;
+                }
+            }
+            if (newTarget != null) {
+                target = newTarget.name;
             }
         }
-        return target != null? target.name: null;
     }
 
     private Point2D getTargetPos(long firingTime, double power, Recording target) throws IndexOutOfBoundsException {

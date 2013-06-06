@@ -1,4 +1,4 @@
-package pbn.omgnator;
+package pbn.pinkpanther;
 
 import java.awt.geom.Point2D;
 

@@ -1,4 +1,4 @@
-package pbn.omgnator;
+package pbn.pinkpanther;
 
 import robocode.Robot;
 import robocode.ScannedRobotEvent;
@@ -6,8 +6,8 @@ import robocode.ScannedRobotEvent;
 import java.awt.geom.Point2D;
 
 import static java.lang.Math.*;
-import static pbn.omgnator.OMGNator.dx;
-import static pbn.omgnator.OMGNator.dy;
+import static pbn.pinkpanther.PinkPanther.dx;
+import static pbn.pinkpanther.PinkPanther.dy;
 import static robocode.util.Utils.normalAbsoluteAngle;
 
 /**

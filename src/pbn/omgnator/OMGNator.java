@@ -79,7 +79,7 @@ public class OMGNator extends AdvancedRobot {
                 setDebugProperty("Remaining turn", String.valueOf(Math.toDegrees(gunTurn)));
                 if (gunCoolTime < 0.1 && abs(Math.toDegrees(gunTurn)) < 2) {
                     setFire(1.5);
-                    target = null;
+//                    target = null;
                 } else {
                     setTurnGunRightRadians(gunTurn);
                 }

@@ -79,7 +79,7 @@ public class OMGNator extends AdvancedRobot {
                 setDebugProperty("Remaining turn", String.valueOf(Math.toDegrees(gunTurn)));
                 if (gunCoolTime < 0.1 && abs(Math.toDegrees(gunTurn)) < 2) {
                     setFire(1.5);
-//                    target = null;
+                    target = null;
                 } else {
                     setTurnGunRightRadians(gunTurn);
                 }
@@ -93,7 +93,8 @@ public class OMGNator extends AdvancedRobot {
         double[] totalVector = getTotalVector(forcePoints);
         Point2D destination = new Point2D.Double(getX() + totalVector[0], getY() + totalVector[1]);
 
-        double turn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), destination) - getHeadingRadians());
+        double targetBearing = getAbsoluteBearing(currentPosition(), destination);
+        double turn = normalRelativeAngle(targetBearing - getHeadingRadians());
         if (abs(turn) > PI2) {
             direction = -1;
             turn -= PI2;
@@ -117,7 +118,12 @@ public class OMGNator extends AdvancedRobot {
     private Map<Point2D, Integer> getForcePoints() {
         Point2D pos = currentPosition();
         Map<Point2D, Integer> points = new HashMap<Point2D, Integer>();
-        int fixedPointValue = max(BOT_WEIGHT, getOthers() / 2);
+        int fixedPointValue = max(BOT_WEIGHT, getOthers() / 2 + bullets.size() / 4);
+        points.put(new Point2D.Double(bfX2, bfY2), 2);
+        points.put(new Point2D.Double(bfX2 - bfX2 / 2, bfY2), 2);
+        points.put(new Point2D.Double(bfX2 + bfX2 / 2, bfY2), 2);
+        points.put(new Point2D.Double(bfX2, bfY2 - bfY2 / 2), 2);
+        points.put(new Point2D.Double(bfX2, bfY2 + bfY2 / 2), 2);
         points.put(new Point2D.Double(pos.getX(), pos.getY() < bfY2 ? 0: bfY), fixedPointValue); //walls
         points.put(new Point2D.Double(pos.getX() < bfX2 ? 0 : bfX, pos.getY()), fixedPointValue);
         for (Recording bot : tracks.values()) {

@@ -1,5 +1,6 @@
 package pbn.omgnator;
 
+import pbn.internals.NoSolutionException;
 import robocode.*;
 
 import java.awt.*;
@@ -8,7 +9,6 @@ import java.util.*;
 
 import static java.lang.Math.*;
 import static java.lang.Math.PI;
-import static robocode.util.Utils.isNear;
 import static robocode.util.Utils.normalAbsoluteAngle;
 import static robocode.util.Utils.normalRelativeAngle;
 
@@ -27,10 +27,11 @@ public class OMGNator extends AdvancedRobot {
     private int bfX, bfY, bfX2, bfY2;
     private int direction = 1;
     private String lookingFor;
+    private String target;
 
     @Override
     public void run() {
-        setColors(Color.PINK, new Color(0x00ffff), Color.WHITE);
+        setColors(Color.PINK, new Color(0x1000ffff, true), Color.WHITE, Color.RED, new Color(0x8000ffff,true));
         tracks = new HashMap<String, Recording>(getOthers());
         bullets = new HashSet<Bullet>();
         bfX = (int) getBattleFieldWidth();
@@ -53,15 +54,54 @@ public class OMGNator extends AdvancedRobot {
             }
             navigate();
             execute();
+            gun();
+            execute();
         } while (true);
+    }
+
+    private void gun() {
+        if (target == null) {
+            //take aim
+            target = getTarget();
+        }
+        if (target != null) {
+            setDebugProperty("Current target", target);
+            Recording targetRecord = tracks.get(target);
+            if (targetRecord == null) {
+                target = null;
+                return;
+            }
+            int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
+            try {
+                Point2D targetPos = getTargetPos(getTime() + gunCoolTime + 1, 1.5, targetRecord);
+                double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
+                setDebugProperty("Gun cool time", String.valueOf(gunCoolTime));
+                setDebugProperty("Remaining turn", String.valueOf(Math.toDegrees(gunTurn)));
+                if (gunCoolTime < 0.1 && abs(Math.toDegrees(gunTurn)) < 2) {
+                    setFire(1.5);
+                    target = null;
+                } else {
+                    setTurnGunRightRadians(gunTurn);
+                }
+            } catch (IndexOutOfBoundsException ignored) {
+            }
+        }
     }
 
     private void navigate() {
         Map<Point2D, Integer> forcePoints = getForcePoints();
         double[] totalVector = getTotalVector(forcePoints);
         Point2D destination = new Point2D.Double(getX() + totalVector[0], getY() + totalVector[1]);
+
+        double turn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), destination) - getHeadingRadians());
+        if (abs(turn) > PI2) {
+            direction = -1;
+            turn -= PI2;
+        } else {
+            direction = 1;
+        }
         setAhead( direction* currentPosition().distance(destination) / 2);
-        setTurnRightRadians(direction* normalRelativeAngle(getAbsoluteBearing(currentPosition(), destination) - getHeadingRadians()));
+        setTurnRightRadians(direction* turn);
     }
 
     private double[] getTotalVector(Map<Point2D, Integer> forcePoints) {
@@ -86,13 +126,17 @@ public class OMGNator extends AdvancedRobot {
         for (Iterator<Bullet> iterator = bullets.iterator(); iterator.hasNext(); ) {
             Bullet bullet = iterator.next();
             Point2D p = advanceBullet(bullet);
-            if (p.getX() < 0 || p.getX() > bfX || p.getY() < 0 || p.getY() > bfY) {
+            if (outsideBF(p)) {
                 iterator.remove();
             } else {
                 points.put(p, BULLET_WEIGHT);
             }
         }
         return points;
+    }
+
+    private boolean outsideBF(Point2D p) {
+        return p.getX() < 0 || p.getX() > bfX || p.getY() < 0 || p.getY() > bfY;
     }
 
 
@@ -114,9 +158,10 @@ public class OMGNator extends AdvancedRobot {
         try {
             double energyDrop = previous.energy - record.energy;
             if (energyDrop > 0 && energyDrop <= 3) { //assume that everyone shoots at me!
-                bullets.add(new Bullet(event.getTime(), Rules.getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()), record.position));
+                bullets.add(new Bullet(previous.time + 1, Rules.getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()), record.position));
             }
         } catch (NullPointerException ignored) {}
+        //oldest-seen radar - degenerates to a constant-lock (almost) radar in 1v1
         if (tracks.size() == getOthers() && (lookingFor == null || record.name.equals(lookingFor))) {
             Recording oldest = record;
             for (Recording recording : tracks.values()) {
@@ -130,7 +175,7 @@ public class OMGNator extends AdvancedRobot {
         }
     }
 
-    private Recording getTarget() {
+    private String getTarget() {
         Recording target = null;
         double distance = Double.POSITIVE_INFINITY;
         for (Recording recording : tracks.values()) {
@@ -141,12 +186,43 @@ public class OMGNator extends AdvancedRobot {
                 target = recording;
             }
         }
-        return target;
+        return target != null? target.name: null;
+    }
+
+    private Point2D getTargetPos(long firingTime, double power, Recording target) throws IndexOutOfBoundsException {
+        Point2D targetPos = target.advance(firingTime);
+        double remainingDistance = targetPos.distance(currentPosition());
+        long dt = 0;
+        while (remainingDistance > (getWidth() / 2) ) {
+            dt++; //one step closer
+            Point2D advance = target.advance(firingTime + dt);
+            if (outsideBF(advance)) {
+                out.println("Lead is outside battlefield, aiming at wall location");
+                break;
+            }
+            targetPos = advance;
+            double bulletDistance = getBulletDistance(dt, power);
+            remainingDistance = targetPos.distance(currentPosition()) - bulletDistance;
+            if (bulletDistance > bfX + bfY) {
+                throw new IndexOutOfBoundsException("Iteration exceeded limits");
+            }
+        }
+        return targetPos;
+    }
+
+    public static double getBulletDistance(long ticks, double bulletPower) {
+        return Rules.getBulletSpeed(bulletPower) * ticks;
     }
 
     @Override
     public void onRobotDeath(RobotDeathEvent event) {
         tracks.remove(event.getName());
+        if (event.getName().equals(lookingFor)) {
+            lookingFor = null;
+        }
+        if (event.getName().equals(target)) {
+            target = null;
+        }
     }
 
     @Override

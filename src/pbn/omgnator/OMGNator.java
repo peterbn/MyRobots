@@ -1,6 +1,5 @@
 package pbn.omgnator;
 
-import pbn.internals.NoSolutionException;
 import robocode.*;
 
 import java.awt.*;
@@ -73,12 +72,15 @@ public class OMGNator extends AdvancedRobot {
             }
             int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
             try {
-                Point2D targetPos = getTargetPos(getTime() + gunCoolTime + 1, 1.5, targetRecord);
+                double power = min(1.5, getEnergy());
+                Point2D targetPos = getTargetPos(getTime() + gunCoolTime + 1, power, targetRecord);
+                if (targetPos.distance(currentPosition()) < 300 && getEnergy() > 3) {
+                    power = 3;
+                    targetPos = getTargetPos(getTime() + gunCoolTime + 1, power, targetRecord);
+                }
                 double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
-                setDebugProperty("Gun cool time", String.valueOf(gunCoolTime));
-                setDebugProperty("Remaining turn", String.valueOf(Math.toDegrees(gunTurn)));
                 if (gunCoolTime < 0.1 && abs(Math.toDegrees(gunTurn)) < 2) {
-                    setFire(1.5);
+                    setFire(power);
                     target = null;
                 } else {
                     setTurnGunRightRadians(gunTurn);
@@ -120,10 +122,10 @@ public class OMGNator extends AdvancedRobot {
         Map<Point2D, Integer> points = new HashMap<Point2D, Integer>();
         int fixedPointValue = max(BOT_WEIGHT, getOthers() / 2 + bullets.size() / 4);
         points.put(new Point2D.Double(bfX2, bfY2), 2);
-        points.put(new Point2D.Double(bfX2 - bfX2 / 2, bfY2), 2);
-        points.put(new Point2D.Double(bfX2 + bfX2 / 2, bfY2), 2);
-        points.put(new Point2D.Double(bfX2, bfY2 - bfY2 / 2), 2);
-        points.put(new Point2D.Double(bfX2, bfY2 + bfY2 / 2), 2);
+        points.put(new Point2D.Double(bfX2 - bfX2 / 2, bfY2), 1);
+        points.put(new Point2D.Double(bfX2 + bfX2 / 2, bfY2), 1);
+        points.put(new Point2D.Double(bfX2, bfY2 - bfY2 / 2), 1);
+        points.put(new Point2D.Double(bfX2, bfY2 + bfY2 / 2), 1);
         points.put(new Point2D.Double(pos.getX(), pos.getY() < bfY2 ? 0: bfY), fixedPointValue); //walls
         points.put(new Point2D.Double(pos.getX() < bfX2 ? 0 : bfX, pos.getY()), fixedPointValue);
         for (Recording bot : tracks.values()) {
@@ -203,21 +205,16 @@ public class OMGNator extends AdvancedRobot {
             dt++; //one step closer
             Point2D advance = target.advance(firingTime + dt);
             if (outsideBF(advance)) {
-                out.println("Lead is outside battlefield, aiming at wall location");
                 break;
             }
             targetPos = advance;
-            double bulletDistance = getBulletDistance(dt, power);
+            double bulletDistance = Rules.getBulletSpeed(power) * dt;
             remainingDistance = targetPos.distance(currentPosition()) - bulletDistance;
             if (bulletDistance > bfX + bfY) {
                 throw new IndexOutOfBoundsException("Iteration exceeded limits");
             }
         }
         return targetPos;
-    }
-
-    public static double getBulletDistance(long ticks, double bulletPower) {
-        return Rules.getBulletSpeed(bulletPower) * ticks;
     }
 
     @Override
@@ -229,21 +226,6 @@ public class OMGNator extends AdvancedRobot {
         if (event.getName().equals(target)) {
             target = null;
         }
-    }
-
-    @Override
-    public void onHitByBullet(HitByBulletEvent event) {
-        direction*=-1;
-    }
-
-    @Override
-    public void onHitWall(HitWallEvent event) {
-        direction*=-1;
-    }
-
-    @Override
-    public void onHitRobot(HitRobotEvent event) {
-        direction*=-1;
     }
 
     public static double getAbsoluteBearing(Point2D from, Point2D to) {
@@ -265,7 +247,6 @@ public class OMGNator extends AdvancedRobot {
     public static double dy(double angle) {
         return cos(angle);
     }
-
     @Override
     public void onPaint(Graphics2D g) {
         Map<Point2D, Integer> forcePoints = getForcePoints();

@@ -51,7 +51,6 @@ public class PinkPanther extends AdvancedRobot {
                 }
             }
             navigate();
-            execute();
             gun();
             execute();
         } while (true);
@@ -200,7 +199,7 @@ public class PinkPanther extends AdvancedRobot {
     private Point2D getTargetPos(long firingTime, double power, Recording target) throws IndexOutOfBoundsException {
         Point2D targetPos = target.advance(firingTime);
         double remainingDistance = targetPos.distance(currentPosition());
-        long dt = 0;
+        int dt = 0;
         while (remainingDistance > (getWidth() / 2) ) {
             dt++; //one step closer
             Point2D advance = target.advance(firingTime + dt);

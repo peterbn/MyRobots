@@ -245,7 +245,7 @@ public class PinkPanther extends AdvancedRobot {
         return new Point2D.Double(x, y);
     }
 
-    boolean
+    static boolean
             renderBullets = true,
             renderForcePoints = true,
             renderNavVector = true,

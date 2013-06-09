@@ -433,9 +433,7 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     private int renderBotOverlay(Graphics2D g, int x, int y, Color color) {
-        g.setColor(new Color(0x40000000 + color.getRGB(), true));
         int targetRadius = 30;
-        g.fillOval(x - targetRadius, y - targetRadius, targetRadius * 2, targetRadius * 2);
         g.setColor(color);
         g.fillOval(x - 2, y - 2, 4, 4);
         g.setStroke(new BasicStroke(3));

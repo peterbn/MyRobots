@@ -50,7 +50,7 @@ public class Recording implements Comparable<Recording>{
         return (int) max(0, (73. * (1200 - robot.currentPosition().distance(advance(robot.getTime())))) / 1200
                 + (15. * (100 - energy)) / 100
                 + (20. * closeBots) / robot.getOthers()
-                + 2 * (name.equals(robot.target) ? 1 : 0)
+                + 2 * (name.equals(PinkPanther.target) ? 1 : 0)
         );
     }
 

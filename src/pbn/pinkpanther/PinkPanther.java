@@ -9,6 +9,7 @@ import java.util.*;
 
 import static java.lang.Math.*;
 import static java.lang.Math.PI;
+import static robocode.Rules.getBulletSpeed;
 import static robocode.util.Utils.normalAbsoluteAngle;
 import static robocode.util.Utils.normalRelativeAngle;
 
@@ -17,16 +18,13 @@ import static robocode.util.Utils.normalRelativeAngle;
  */
 public class PinkPanther extends AdvancedRobot {
 
-    private static final int BOT_WEIGHT = 4;
-    private static final int BULLET_WEIGHT = 2;
-
     public static final double PI2 = PI / 2;
 
     static Map<String, Recording> tracks;
     static Set<Bullet> bullets;
     static int bfX, bfY, bfX2, bfY2;
-    private String lookingFor;
-    volatile String target;
+    static String lookingFor;
+    static volatile String target;
 
     @Override
     public void run() {
@@ -52,7 +50,6 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     private void gun() {
-        //take aim
         Recording newTarget;
         int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
 
@@ -60,54 +57,76 @@ public class PinkPanther extends AdvancedRobot {
         try {
             newTarget = new TreeSet<Recording>(tracks.values()).iterator().next();
             if (newTarget != null) {
-                if (this.target == null || getGunHeat() > 0.7) {
+                if (target == null || getGunHeat() > 0.7) {
                     target = newTarget.name;
                 }
                 if (!newTarget.name.equals(target)) {
-                    double power;
-                    Point2D targetPos;
-
-                    power = computePower(newTarget);
-                    targetPos = getTargetPos(firingTime, power, newTarget);
-                    double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
-                    if (abs(gunTurn) / toRadians(20) < gunCoolTime -1) {
+                    double[] solution = computeSolution(firingTime, newTarget);
+                    if (abs(solution[1]) / toRadians(20) < gunCoolTime - 1) {
                         target = newTarget.name;
                     }
                 }
             }
-        } catch (Exception ignored) {}
-        if (target != null) {
-            setDebugProperty("Current target", target);
-            Recording targetRecord = tracks.get(target);
-            if (targetRecord == null) {
-                target = null;
-                return;
-            }
-            try {
-                double power;
-                Point2D targetPos;
-
-                //power to kill + a bit
-                power = computePower(targetRecord);
-                targetPos = getTargetPos(firingTime, power, targetRecord);
-                double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
-
-                if (gunCoolTime == 0 && getGunTurnRemaining() < 2) {
-                    setFire(power);
-                } else if (gunCoolTime > 1) { //lock target when we have a single turn left.
-                    setTurnGunRightRadians(gunTurn);
+            if (target != null) {
+                try {
+                    Recording targetRecord = tracks.get(target);
+                    double[] solution = computeSolution(firingTime, targetRecord);
+                    if (gunCoolTime == 0 && getGunTurnRemaining() < 2) {
+                        setFire(solution[0]);
+                    } else if (gunCoolTime > 1) { //lock target when we have a single turn left.
+                        setTurnGunRightRadians(solution[1]);
+                    }
+                } catch (IndexOutOfBoundsException ignored) {
+                } catch (NullPointerException npe) {
+                    target = null;
                 }
-            } catch (IndexOutOfBoundsException ignored) {
             }
+        } catch (Exception ignored) {
         }
     }
 
-    private double computePower(Recording targetRecord) {
-        return min((3. *  targetRecord.score()) / 100, min(min(3, getEnergy()), 0.1 + (targetRecord.energy > 4 ? (targetRecord.energy + 2) / 6 : targetRecord.energy / 4)));
+    /**
+     * Returns (power, gunTurn)
+     *
+     * @param firingTime   Time of shot
+     * @param targetRecord Target of shot
+     * @return Array with (power, gunTurn)
+     */
+    private double[] computeSolution(long firingTime, Recording targetRecord) {
+        double power = min(
+                (3. * targetRecord.score()) / 100,
+                min(
+                        min(
+                                3,
+                                getEnergy()),
+                        0.1 + (targetRecord.energy > 4 ? (targetRecord.energy + 2) / 6 : targetRecord.energy / 4)));
+
+        //calculate target position
+        Point2D targetPos = targetRecord.advance(firingTime);
+        double remainingDistance = targetPos.distance(currentPosition());
+        int dt = 0;
+        while (remainingDistance > (getWidth() / 2)) {
+            dt++; //one step closer
+            Point2D advance = targetRecord.advance(firingTime + dt);
+            if (outsideBF(advance)) {
+                break;
+            }
+            targetPos = advance;
+            double bulletDistance = getBulletSpeed(power) * dt;
+            remainingDistance = targetPos.distance(currentPosition()) - bulletDistance;
+            if (bulletDistance > Point2D.distance(0, 0, bfX, bfY)) { //passed diagonal of battlefield
+                throw new IndexOutOfBoundsException();
+            }
+        }
+        //got target position
+        return new double[]{power,
+                normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians()) //gun turn
+        };
     }
 
+
     private void navigate() {
-        Map<Point2D, Integer> forcePoints = getForcePoints();
+        Map<Point2D, Double> forcePoints = getForcePoints();
         double[] totalVector = getTotalVector(forcePoints);
         Point2D destination = new Point2D.Double(getX() + totalVector[0], getY() + totalVector[1]);
 
@@ -124,9 +143,9 @@ public class PinkPanther extends AdvancedRobot {
         }
     }
 
-    private double[] getTotalVector(Map<Point2D, Integer> forcePoints) {
-        double[] totalVector = new double[]{0, 0};
-        for (Map.Entry<Point2D, Integer> forcePoint : forcePoints.entrySet()) {
+    private double[] getTotalVector(Map<Point2D, Double> forcePoints) {
+        double[] totalVector = new double[2];
+        for (Map.Entry<Point2D, Double> forcePoint : forcePoints.entrySet()) {
             double[] vector = forceVector(forcePoint.getKey(), forcePoint.getValue());
             totalVector[0] += vector[0];
             totalVector[1] += vector[1];
@@ -134,23 +153,23 @@ public class PinkPanther extends AdvancedRobot {
         return totalVector;
     }
 
-    private Map<Point2D, Integer> getForcePoints() {
-        Map<Point2D, Integer> points = new HashMap<Point2D, Integer>();
-        int fixedPointValue = max(2, getOthers() / 2 + bullets.size() / 8);
+    private Map<Point2D, Double> getForcePoints() {
+        Map<Point2D, Double> points = new HashMap<Point2D, Double>();
+        double fixedPointValue = max(2, getOthers() / 2 + bullets.size() / 4);
 
-        points.put(new Point2D.Double(bfX2, bfY2), BOT_WEIGHT); //center
+        points.put(new Point2D.Double(bfX2, bfY2), 4.); //center
         points.put(new Point2D.Double(getX(), getY() < bfY2 ? 0 : bfY), fixedPointValue); //walls
         points.put(new Point2D.Double(getX() < bfX2 ? 0 : bfX, getY()), fixedPointValue);
         for (Recording bot : tracks.values()) {
-            points.put(bot.advance(getTime() + 1), 2 + (int) bot.energy / 10); //bots
+            points.put(bot.advance(getTime() + 1), 2 + bot.energy / 10); //bots
         }
-        for (Iterator<Bullet> iterator = bullets.iterator(); iterator.hasNext();) {
+        for (Iterator<Bullet> iterator = bullets.iterator(); iterator.hasNext(); ) {
             Bullet bullet = iterator.next();
             Point2D p = advanceBullet(bullet);
             if (outsideBF(p)) {
                 iterator.remove();
             } else {
-                points.put(p, BULLET_WEIGHT);
+                points.put(p, 2.);
             }
         }
         return points;
@@ -161,7 +180,7 @@ public class PinkPanther extends AdvancedRobot {
     }
 
 
-    private double[] forceVector(Point2D point, int weight) {
+    private double[] forceVector(Point2D point, double weight) {
         double F = (weight) / pow(point.distance(currentPosition()), 2);
         double bearing = getAbsoluteBearing(point, currentPosition());
         return new double[]{sin(bearing) * F, cos(bearing) * F};
@@ -178,8 +197,10 @@ public class PinkPanther extends AdvancedRobot {
         tracks.put(record.name, record);
         try {
             double energyDrop = previous.energy - record.energy;
-            if (energyDrop > 0 && energyDrop <= 3) { //assume that everyone shoots at me! A Lot!
-                bullets.add(new Bullet(previous.time, Rules.getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()), record.position));
+            if (record.name.equals(target) && energyDrop > 0 && energyDrop <= 3) { //assume that every shot is in my direction
+                for (int i = -8; i <= 8; i++) {// poor mans wave-surfing - ish
+                    bullets.add(new Bullet(previous.time, getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()) + asin(i / getBulletSpeed(energyDrop)), record.position));
+                }
             }
         } catch (NullPointerException ignored) {
         }
@@ -192,29 +213,8 @@ public class PinkPanther extends AdvancedRobot {
                 }
             }
             lookingFor = oldest.name;
-            double d = signum(normalRelativeAngle(getAbsoluteBearing(currentPosition(), oldest.position) - getRadarHeadingRadians()));
-            setTurnRadarRightRadians(d * Double.POSITIVE_INFINITY);
+            setTurnRadarRightRadians(normalRelativeAngle(getAbsoluteBearing(currentPosition(), oldest.position) - getRadarHeadingRadians()) * Double.POSITIVE_INFINITY);
         }
-    }
-
-    private Point2D getTargetPos(long firingTime, double power, Recording target) throws IndexOutOfBoundsException {
-        Point2D targetPos = target.advance(firingTime);
-        double remainingDistance = targetPos.distance(currentPosition());
-        int dt = 0;
-        while (remainingDistance > (getWidth() / 2)) {
-            dt++; //one step closer
-            Point2D advance = target.advance(firingTime + dt);
-            if (outsideBF(advance)) {
-                break;
-            }
-            targetPos = advance;
-            double bulletDistance = Rules.getBulletSpeed(power) * dt;
-            remainingDistance = targetPos.distance(currentPosition()) - bulletDistance;
-            if (bulletDistance > bfX + bfY) {
-                throw new IndexOutOfBoundsException("Iteration exceeded limits");
-            }
-        }
-        return targetPos;
     }
 
     @Override
@@ -233,6 +233,7 @@ public class PinkPanther extends AdvancedRobot {
         double dX = to.getX() - from.getX();
         double angle;
         if (dY != 0) {
+            //yeah, it is suspicious - because someone inverted the coordinate system with respect to angles
             //noinspection SuspiciousNameCombination
             angle = Math.atan2(dX, dY);
         } else {
@@ -242,17 +243,18 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     private Point2D advanceBullet(Bullet bullet) {
-        double x = bullet.position.getX() + (getTime() - bullet.fireTime) * sin(bullet.heading) * bullet.speed;
-        double y = bullet.position.getY() + (getTime() - bullet.fireTime) * cos(bullet.heading) * bullet.speed;
-        return new Point2D.Double(x, y);
+        double distance = (getTime() - bullet.fireTime) * bullet.speed;
+        return new Point2D.Double(
+                bullet.position.getX() + distance * sin(bullet.heading),
+                bullet.position.getY() + distance * cos(bullet.heading));
     }
 
     static boolean
-            renderBullets       = false,
-            renderForcePoints   = false,
-            renderNavVector     = false,
-            renderRadarInfo     = false,
-            renderSelfOverlay   = false,
+            renderBullets = false,
+            renderForcePoints = false,
+            renderNavVector = false,
+            renderRadarInfo = false,
+            renderSelfOverlay = false,
             renderCurrentTarget = false;
 
     @Override
@@ -343,9 +345,9 @@ public class PinkPanther extends AdvancedRobot {
         g.setColor(new Color(0x1000ff00, true));
         int x = (int) getX();
         int y = (int) getY();
-        g.fillOval(x-opportunityRadius, y - opportunityRadius, opportunityRadius*2, opportunityRadius* 2);
+        g.fillOval(x - opportunityRadius, y - opportunityRadius, opportunityRadius * 2, opportunityRadius * 2);
         int gunTurn = (int) (20 * getGunHeat() / getGunCoolingRate());
-        g.fillArc(x - opportunityRadius, y - opportunityRadius, opportunityRadius * 2, opportunityRadius * 2, (int)getGunHeading() - gunTurn, 2 * gunTurn);
+        g.fillArc(x - opportunityRadius, y - opportunityRadius, opportunityRadius * 2, opportunityRadius * 2, (int) getGunHeading() - gunTurn, 2 * gunTurn);
         renderBotOverlay(g, x, y, Color.BLUE);
     }
 
@@ -362,8 +364,8 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     private void renderForcePoints(Graphics2D g) {
-        Map<Point2D, Integer> forcePoints = getForcePoints();
-        for (Map.Entry<Point2D, Integer> fp : forcePoints.entrySet()) {
+        Map<Point2D, Double> forcePoints = getForcePoints();
+        for (Map.Entry<Point2D, Double> fp : forcePoints.entrySet()) {
             Point2D point = fp.getKey();
             double[] vector = forceVector(point, fp.getValue());
             Point2D firingPoint = new Point2D.Double(point.getX() + vector[0], point.getY() + vector[1]);
@@ -385,7 +387,7 @@ public class PinkPanther extends AdvancedRobot {
             int y = (int) advance.getY();
             g.setColor(new Color(0x10ffffff, true));
             int proximity = 200;
-            g.fillOval(x - proximity, y - proximity, proximity*2, proximity*2);
+            g.fillOval(x - proximity, y - proximity, proximity * 2, proximity * 2);
             Color color = getRadarColor(recording.score());
             g.setColor(color);
             g.fillRect(x - 20, y - 20, 40, 40);
@@ -395,9 +397,9 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     private Color getRadarColor(int score) {
-        int red = score >= 50 ? 0xff : (int)(0xff*(score*2.)/100);
-        int green = score <= 50 ? 0xff : (int)(0xff * (100. - score) / 100);
-        return new Color(red, green, 0x00, 0x70 );
+        int red = score >= 50 ? 0xff : (int) (0xff * (score * 2.) / 100);
+        int green = score <= 50 ? 0xff : (int) (0xff * (100. - score) / 100);
+        return new Color(red, green, 0x00, 0x70);
     }
 
     private void renderBullets(Graphics2D g) {
@@ -433,11 +435,11 @@ public class PinkPanther extends AdvancedRobot {
     private int renderBotOverlay(Graphics2D g, int x, int y, Color color) {
         g.setColor(new Color(0x40000000 + color.getRGB(), true));
         int targetRadius = 30;
-        g.fillOval(x - targetRadius, y - targetRadius, targetRadius*2, targetRadius*2);
+        g.fillOval(x - targetRadius, y - targetRadius, targetRadius * 2, targetRadius * 2);
         g.setColor(color);
         g.fillOval(x - 2, y - 2, 4, 4);
         g.setStroke(new BasicStroke(3));
-        g.drawOval(x - targetRadius, y - targetRadius, targetRadius*2, targetRadius*2);
+        g.drawOval(x - targetRadius, y - targetRadius, targetRadius * 2, targetRadius * 2);
         return targetRadius;
     }
 

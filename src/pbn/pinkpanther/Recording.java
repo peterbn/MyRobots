@@ -4,6 +4,7 @@ import robocode.ScannedRobotEvent;
 import robocode.annotation.SafeStatic;
 
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 
 import static java.lang.Math.*;
 import static robocode.util.Utils.normalAbsoluteAngle;
@@ -16,7 +17,7 @@ public class Recording implements Comparable<Recording>{
     public final double
             velocity,
             turnRate,
-            headingRadians;
+            heading;
     public final String name;
     public final  double energy;
     @SafeStatic
@@ -26,7 +27,7 @@ public class Recording implements Comparable<Recording>{
         this.name = event.getName();
         double distance = event.getDistance();
         double bearingRadians = normalAbsoluteAngle(robot.getHeadingRadians() + event.getBearingRadians());
-        headingRadians = event.getHeadingRadians();
+        heading = event.getHeadingRadians();
         double x = sin(bearingRadians) * distance + robot.getX();
         double y = cos(bearingRadians) * distance + robot.getY();
 
@@ -35,10 +36,23 @@ public class Recording implements Comparable<Recording>{
         velocity = event.getVelocity();
         energy = event.getEnergy();
         if (previous != null && previous.time < time) {
-            turnRate = (headingRadians - previous.headingRadians) / (time - previous.time);
+            turnRate = (heading - previous.heading) / (time - previous.time);
         } else {
             turnRate = 0;
         }
+    }
+
+    //A score function - for target selection
+    public int score() {
+        int closeBots = 0;
+        for (Recording recording : robot.tracks.values()) {
+            closeBots += recording.advance(robot.getTime()).distance(advance(robot.getTime())) < 200 ? 1 : 0;
+        }
+        return (int) max(0, (73. * (1200 - robot.currentPosition().distance(advance(robot.getTime())))) / 1200
+                + (15. * (100 - energy)) / 100
+                + (20. * closeBots) / robot.getOthers()
+                + 2 * (name.equals(robot.target) ? 1 : 0)
+        );
     }
 
     public Point2D advance(long time) {
@@ -47,8 +61,8 @@ public class Recording implements Comparable<Recording>{
         double dx = 0;
         double dy = 0;
         for (long t = 0; t < dt; t++) {
-            dx += sin(headingRadians + turnRate * t) * velocity;
-            dy += cos(headingRadians + turnRate * t) * velocity;
+            dx += sin(heading + turnRate * t) * velocity;
+            dy += cos(heading + turnRate * t) * velocity;
         }
         return new Point2D.Double(position.getX() + dx, position.getY() + dy);
     }
@@ -56,14 +70,6 @@ public class Recording implements Comparable<Recording>{
 
     @Override
     public int compareTo(Recording o) {
-        if (energy <= 16 && o.energy > 16) {
-            return -1;
-        } else if (energy > 16 && o.energy <= 16) {
-            return 1;
-        } else if (energy <= 16 && o.energy <= 16) {
-            return (int) (energy - o.energy);
-        } else {
-            return (int) (robot.currentPosition().distance(advance(robot.getTime())) - robot.currentPosition().distance(o.advance(robot.getTime())));
-        }
+        return o.score() - score();
     }
 }

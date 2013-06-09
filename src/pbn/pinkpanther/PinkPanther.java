@@ -26,7 +26,7 @@ public class PinkPanther extends AdvancedRobot {
     static Set<Bullet> bullets;
     static int bfX, bfY, bfX2, bfY2;
     private String lookingFor;
-    private String target;
+    volatile String target;
 
     @Override
     public void run() {
@@ -53,7 +53,32 @@ public class PinkPanther extends AdvancedRobot {
 
     private void gun() {
         //take aim
-        setTarget();
+        Recording newTarget;
+        Set<Recording> list = new TreeSet<Recording>(tracks.values());
+        int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
+
+        long firingTime = getTime() + gunCoolTime + 1;
+        try {
+            newTarget = list.iterator().next();
+            if (newTarget != null) {
+                if (this.target == null || getGunHeat() > 0.7) {
+                    target = newTarget.name;
+                }
+                if (!newTarget.equals(target)) {
+                    double power;
+                    Point2D targetPos;
+                    Recording targetRecord = tracks.get(newTarget);
+
+                    power = computePower(targetRecord);
+                    targetPos = getTargetPos(firingTime, power, targetRecord);
+                    double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
+                    if (abs(gunTurn) / toRadians(20) < gunCoolTime -1) {
+                        target = newTarget.name;
+                    }
+                }
+            }
+        } catch (Exception ignored1) {
+        }
         if (target != null) {
             setDebugProperty("Current target", target);
             Recording targetRecord = tracks.get(target);
@@ -61,35 +86,27 @@ public class PinkPanther extends AdvancedRobot {
                 target = null;
                 return;
             }
-            int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
             try {
                 double power;
                 Point2D targetPos;
 
                 //power to kill + a bit
-                double killPower = 0.1 + (targetRecord.energy > 4 ? (targetRecord.energy + 2) / 6 : targetRecord.energy / 4);
-                setDebugProperty("KillPower", String.valueOf(killPower));
-                double maxEnergy = min(3, getEnergy());
-                if (killPower <= maxEnergy) { //shoot to kill
-                    power = max(.1, .5 * killPower); //only shoot half killpower - chances are, the bot will get hit before our bullet
-                    targetPos = getTargetPos(getTime() + gunCoolTime + 1, power, targetRecord);
-                } else if (targetRecord.advance(getTime()).distance(currentPosition()) < 300) {
-                    power = maxEnergy;
-                    targetPos = getTargetPos(getTime() + gunCoolTime + 1, power, targetRecord);
-                } else {
-                    power = min(1.5, maxEnergy);
-                    targetPos = getTargetPos(getTime() + gunCoolTime + 1, power, targetRecord);
-                }
-
+                power = computePower(targetRecord);
+                targetPos = getTargetPos(firingTime, power, targetRecord);
                 double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
-                if (gunCoolTime < 0.1 && abs(Math.toDegrees(gunTurn)) < 2) {
+
+                if (gunCoolTime == 0 && getGunTurnRemaining() < 2) {
                     setFire(power);
-                } else {
+                } else if (gunCoolTime > 1) { //lock target when we have a single turn left.
                     setTurnGunRightRadians(gunTurn);
                 }
             } catch (IndexOutOfBoundsException ignored) {
             }
         }
+    }
+
+    private double computePower(Recording targetRecord) {
+        return min((3. *  targetRecord.score()) / 100, min(min(3, getEnergy()), 0.1 + (targetRecord.energy > 4 ? (targetRecord.energy + 2) / 6 : targetRecord.energy / 4)));
     }
 
     private void navigate() {
@@ -183,18 +200,6 @@ public class PinkPanther extends AdvancedRobot {
         }
     }
 
-    private void setTarget() {
-        Recording newTarget = null;
-        Set<Recording> list = new TreeSet<Recording>(tracks.values());
-        try {
-            newTarget = list.iterator().next();
-            if (newTarget != null && (this.target == null || getGunHeat() > 0.7)) {
-                target = newTarget.name;
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
     private Point2D getTargetPos(long firingTime, double power, Recording target) throws IndexOutOfBoundsException {
         Point2D targetPos = target.advance(firingTime);
         double remainingDistance = targetPos.distance(currentPosition());
@@ -246,12 +251,12 @@ public class PinkPanther extends AdvancedRobot {
     }
 
     static boolean
-            renderBullets = true,
-            renderForcePoints = true,
-            renderNavVector = true,
-            renderRadarInfo = true,
-            renderSelfOverlay = true,
-            renderCurrentTarget = true;
+            renderBullets       = false,
+            renderForcePoints   = false,
+            renderNavVector     = false,
+            renderRadarInfo     = false,
+            renderSelfOverlay   = false,
+            renderCurrentTarget = false;
 
     @Override
     public void onKeyTyped(KeyEvent e) {
@@ -317,45 +322,16 @@ public class PinkPanther extends AdvancedRobot {
     public void onPaint(Graphics2D g) {
         printCharMap(g);
         if (renderSelfOverlay) {
-            int opportunityRadius = 500;
-            g.setColor(new Color(0x2000ff00, true));
-            int x = (int) getX();
-            int y = (int) getY();
-            g.fillOval(x-opportunityRadius, y - opportunityRadius, opportunityRadius*2, opportunityRadius* 2);
-            int gunTurn = (int) (20 * getGunHeat() / getGunCoolingRate());
-            g.fillArc(x - opportunityRadius, y - opportunityRadius, opportunityRadius * 2, opportunityRadius * 2, (int)getGunHeading() - gunTurn, 2 * gunTurn);
-            renderbotOverlay(g, x, y, Color.BLUE);
+            renderSelfOverlay(g);
         }
         if (renderRadarInfo) {
-            for (Recording recording : tracks.values()) {
-                Color color = new Color(0x8000ff00 - (int) (getTime() - recording.time) * 0x10000000, true);
-                int x = (int) recording.position.getX();
-                int y = (int) recording.position.getY();
-                g.setColor(color);
-                g.fillRect(x - 20, y - 20, 40, 40);
-                Point2D advance = recording.advance(getTime());
-                g.setColor(Color.GREEN);
-                g.drawLine(x,y, (int) advance.getX(),(int)advance.getY());
-            }
+            renderRadarInfo(g);
         }
-        Map<Point2D, Integer> forcePoints = getForcePoints();
-        for (Map.Entry<Point2D, Integer> fp : forcePoints.entrySet()) {
-            Point2D point = fp.getKey();
-            double[] vector = forceVector(point, fp.getValue());
-            if (renderForcePoints) {
-                renderForcePoints(g, point, vector);
-            }
+        if (renderForcePoints) {
+            renderForcePoints(g);
         }
-        double[] totalVector = getTotalVector(forcePoints);
-        Point2D destination = new Point2D.Double(getX() + totalVector[0], getY() + totalVector[1]);
         if (renderNavVector) {
-            Point2D targetPos = currentPosition();
-            g.setColor(Color.PINK);
-            int fromX = (int) destination.getX();
-            int fromY = (int) destination.getY();
-            int toX = (int) targetPos.getX();
-            int toY = (int) targetPos.getY();
-            g.drawLine(fromX, fromY, toX, toY);
+            renderNavVector(g);
         }
         if (renderBullets) {
             renderBullets(g);
@@ -365,16 +341,66 @@ public class PinkPanther extends AdvancedRobot {
         }
     }
 
-    private void renderForcePoints(Graphics2D g, Point2D point, double[] vector) {
-        Point2D firingPoint = new Point2D.Double(point.getX() + vector[0], point.getY() + vector[1]);
-        int fromX = (int) firingPoint.getX();
-        int fromY = (int) firingPoint.getY();
-        int toX = (int) point.getX();
-        int toY = (int) point.getY();
-        g.setColor(new Color(0x80ff00ff, true));
+    private void renderSelfOverlay(Graphics2D g) {
+        int opportunityRadius = 200;
+        g.setColor(new Color(0x1000ff00, true));
+        int x = (int) getX();
+        int y = (int) getY();
+        g.fillOval(x-opportunityRadius, y - opportunityRadius, opportunityRadius*2, opportunityRadius* 2);
+        int gunTurn = (int) (20 * getGunHeat() / getGunCoolingRate());
+        g.fillArc(x - opportunityRadius, y - opportunityRadius, opportunityRadius * 2, opportunityRadius * 2, (int)getGunHeading() - gunTurn, 2 * gunTurn);
+        renderBotOverlay(g, x, y, Color.BLUE);
+    }
+
+    private void renderNavVector(Graphics2D g) {
+        double[] totalVector = getTotalVector(getForcePoints());
+        Point2D destination = new Point2D.Double(getX() + totalVector[0], getY() + totalVector[1]);
+        Point2D targetPos = currentPosition();
+        g.setColor(Color.PINK);
+        int fromX = (int) destination.getX();
+        int fromY = (int) destination.getY();
+        int toX = (int) targetPos.getX();
+        int toY = (int) targetPos.getY();
         g.drawLine(fromX, fromY, toX, toY);
-        g.setColor(new Color(0x800000ff, true));
-        g.fillOval(toX - 5, toY - 5, 10, 10);
+    }
+
+    private void renderForcePoints(Graphics2D g) {
+        Map<Point2D, Integer> forcePoints = getForcePoints();
+        for (Map.Entry<Point2D, Integer> fp : forcePoints.entrySet()) {
+            Point2D point = fp.getKey();
+            double[] vector = forceVector(point, fp.getValue());
+            Point2D firingPoint = new Point2D.Double(point.getX() + vector[0], point.getY() + vector[1]);
+            int fromX = (int) firingPoint.getX();
+            int fromY = (int) firingPoint.getY();
+            int toX = (int) point.getX();
+            int toY = (int) point.getY();
+            g.setColor(new Color(0x80ff00ff, true));
+            g.drawLine(fromX, fromY, toX, toY);
+            g.setColor(new Color(0x800000ff, true));
+            g.fillOval(toX - 5, toY - 5, 10, 10);
+        }
+    }
+
+    private void renderRadarInfo(Graphics2D g) {
+        for (Recording recording : tracks.values()) {
+            Point2D advance = recording.advance(getTime());
+            int x = (int) advance.getX();
+            int y = (int) advance.getY();
+            g.setColor(new Color(0x10ffffff, true));
+            int proximity = 200;
+            g.fillOval(x - proximity, y - proximity, proximity*2, proximity*2);
+            Color color = getRadarColor(recording.time, recording.score());
+            g.setColor(color);
+            g.fillRect(x - 20, y - 20, 40, 40);
+            g.setColor(Color.BLUE);
+            g.drawString(String.valueOf(recording.score()), x - 20, y - 20);
+        }
+    }
+
+    private Color getRadarColor(long time, int score) {
+        int red = score >= 50 ? 0xff : (int)(0xff*(score*2.)/100);
+        int green = score <= 50 ? 0xff : (int)(0xff * (100. - score) / 100);
+        return new Color(red, green, 0x00, 0x70 );
     }
 
     private void renderBullets(Graphics2D g) {
@@ -391,10 +417,10 @@ public class PinkPanther extends AdvancedRobot {
             Point2D position = currentTarget.advance(getTime());
             int x = (int) position.getX();
             int y = (int) position.getY();
-            boolean locked = !(getGunHeat() > 0.7);
+            boolean locked = !(getGunHeat() > 0.1);
             Color color = locked ? Color.RED : Color.YELLOW;
 
-            int targetRadius = renderbotOverlay(g, x, y, color);
+            int targetRadius = renderBotOverlay(g, x, y, color);
 
             g.setStroke(new BasicStroke(1));
             int botX = (int) getX();
@@ -407,14 +433,14 @@ public class PinkPanther extends AdvancedRobot {
         }
     }
 
-    private int renderbotOverlay(Graphics2D g, int x, int y, Color color) {
+    private int renderBotOverlay(Graphics2D g, int x, int y, Color color) {
         g.setColor(new Color(0x40000000 + color.getRGB(), true));
-        int targetRadius = 20;
-        g.fillOval(x - targetRadius, y - targetRadius, 40, 40);
+        int targetRadius = 30;
+        g.fillOval(x - targetRadius, y - targetRadius, targetRadius*2, targetRadius*2);
         g.setColor(color);
         g.fillOval(x - 2, y - 2, 4, 4);
         g.setStroke(new BasicStroke(3));
-        g.drawOval(x - targetRadius, y - targetRadius, 40, 40);
+        g.drawOval(x - targetRadius, y - targetRadius, targetRadius*2, targetRadius*2);
         return targetRadius;
     }
 

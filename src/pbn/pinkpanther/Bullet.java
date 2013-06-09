@@ -14,11 +14,13 @@ public class Bullet {
     public double speed;
     public double heading;
     public Point2D position;
+    public int offset;
 
-    public Bullet(long fireTime, double speed, double heading, Point2D position) {
+    public Bullet(long fireTime, double speed, double heading,int offset, Point2D position) {
         this.fireTime = fireTime;
         this.speed = speed;
         this.heading = heading;
+        this.offset = offset;
         this.position = position;
     }
 }

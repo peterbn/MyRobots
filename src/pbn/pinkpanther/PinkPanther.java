@@ -155,7 +155,7 @@ public class PinkPanther extends AdvancedRobot {
 
     private Map<Point2D, Double> getForcePoints() {
         Map<Point2D, Double> points = new HashMap<Point2D, Double>();
-        double fixedPointValue = max(2, getOthers() / 2 + bullets.size() / 4);
+        double fixedPointValue = max(2, getOthers() / 2 + bullets.size() /2);
 
         points.put(new Point2D.Double(bfX2, bfY2), 4.); //center
         points.put(new Point2D.Double(getX(), getY() < bfY2 ? 0 : bfY), fixedPointValue); //walls
@@ -166,10 +166,10 @@ public class PinkPanther extends AdvancedRobot {
         for (Iterator<Bullet> iterator = bullets.iterator(); iterator.hasNext(); ) {
             Bullet bullet = iterator.next();
             Point2D p = advanceBullet(bullet);
-            if (outsideBF(p)) {
+            if (outsideBF(p) || abs(normalRelativeAngle(bullet.heading - getAbsoluteBearing(p, currentPosition()))) > PI2) {
                 iterator.remove();
             } else {
-                points.put(p, 2.);
+                points.put(p, 2. /(abs(bullet.offset) +1));
             }
         }
         return points;
@@ -198,8 +198,8 @@ public class PinkPanther extends AdvancedRobot {
         try {
             double energyDrop = previous.energy - record.energy;
             if (record.name.equals(target) && energyDrop > 0 && energyDrop <= 3) { //assume that every shot is in my direction
-                for (int i = -8; i <= 8; i++) {// poor mans wave-surfing - ish
-                    bullets.add(new Bullet(previous.time, getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()) + asin(i / getBulletSpeed(energyDrop)), record.position));
+                for (int i = -8; i <= 8; i+=2) {// poor mans wave-surfing - ish
+                    bullets.add(new Bullet(previous.time, getBulletSpeed(energyDrop), getAbsoluteBearing(record.position, currentPosition()) + asin(i / getBulletSpeed(energyDrop)), i, record.position));
                 }
             }
         } catch (NullPointerException ignored) {

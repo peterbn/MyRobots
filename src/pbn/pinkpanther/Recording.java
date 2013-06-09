@@ -4,7 +4,6 @@ import robocode.ScannedRobotEvent;
 import robocode.annotation.SafeStatic;
 
 import java.awt.geom.Point2D;
-import java.util.ArrayList;
 
 import static java.lang.Math.*;
 import static robocode.util.Utils.normalAbsoluteAngle;
@@ -45,7 +44,7 @@ public class Recording implements Comparable<Recording>{
     //A score function - for target selection
     public int score() {
         int closeBots = 0;
-        for (Recording recording : robot.tracks.values()) {
+        for (Recording recording : PinkPanther.tracks.values()) {
             closeBots += recording.advance(robot.getTime()).distance(advance(robot.getTime())) < 200 ? 1 : 0;
         }
         return (int) max(0, (73. * (1200 - robot.currentPosition().distance(advance(robot.getTime())))) / 1200

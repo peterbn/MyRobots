@@ -54,31 +54,28 @@ public class PinkPanther extends AdvancedRobot {
     private void gun() {
         //take aim
         Recording newTarget;
-        Set<Recording> list = new TreeSet<Recording>(tracks.values());
         int gunCoolTime = (int) (getGunHeat() / getGunCoolingRate());
 
         long firingTime = getTime() + gunCoolTime + 1;
         try {
-            newTarget = list.iterator().next();
+            newTarget = new TreeSet<Recording>(tracks.values()).iterator().next();
             if (newTarget != null) {
                 if (this.target == null || getGunHeat() > 0.7) {
                     target = newTarget.name;
                 }
-                if (!newTarget.equals(target)) {
+                if (!newTarget.name.equals(target)) {
                     double power;
                     Point2D targetPos;
-                    Recording targetRecord = tracks.get(newTarget);
 
-                    power = computePower(targetRecord);
-                    targetPos = getTargetPos(firingTime, power, targetRecord);
+                    power = computePower(newTarget);
+                    targetPos = getTargetPos(firingTime, power, newTarget);
                     double gunTurn = normalRelativeAngle(getAbsoluteBearing(currentPosition(), targetPos) - getGunHeadingRadians());
                     if (abs(gunTurn) / toRadians(20) < gunCoolTime -1) {
                         target = newTarget.name;
                     }
                 }
             }
-        } catch (Exception ignored1) {
-        }
+        } catch (Exception ignored) {}
         if (target != null) {
             setDebugProperty("Current target", target);
             Recording targetRecord = tracks.get(target);
@@ -389,7 +386,7 @@ public class PinkPanther extends AdvancedRobot {
             g.setColor(new Color(0x10ffffff, true));
             int proximity = 200;
             g.fillOval(x - proximity, y - proximity, proximity*2, proximity*2);
-            Color color = getRadarColor(recording.time, recording.score());
+            Color color = getRadarColor(recording.score());
             g.setColor(color);
             g.fillRect(x - 20, y - 20, 40, 40);
             g.setColor(Color.BLUE);
@@ -397,7 +394,7 @@ public class PinkPanther extends AdvancedRobot {
         }
     }
 
-    private Color getRadarColor(long time, int score) {
+    private Color getRadarColor(int score) {
         int red = score >= 50 ? 0xff : (int)(0xff*(score*2.)/100);
         int green = score <= 50 ? 0xff : (int)(0xff * (100. - score) / 100);
         return new Color(red, green, 0x00, 0x70 );
